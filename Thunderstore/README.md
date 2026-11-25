@@ -1,47 +1,46 @@
-# Facility Meltdown 
-The apparatus was a vital part of the upkeep of the facility's nuclear reactor - and you just took it out.
+# Facility Meltdown Fork
 
-With the facility meltdown mod the appartus has a lot more risk (and reward) attached to it. When you take it out the entire facility spirals into a self destruction sequence! You'll have 2 minutes to escape and take off before you get vaporized.
+The apparatus was vital to the facility reactor—and you just took it out.
 
-FacilityMeltdown will work with most custom moons and all interiors.
-### HELP! When meltdown happenes this modded moon turns red!
-This is known and comes from modded moon creators not setting up in the exact way that vanilla moons are setup (which is fine). They will need to add explict support as it's not something I can really fix on my end. If you're a moon creator and this issue is happening to you, ask in my thread on the modded lethal company discord how to add support!
+Removing it begins a facility-wide self-destruct sequence. Escape to the ship before the reactor explodes, or be caught in the fireball. The default countdown is two minutes, but the host can configure it from 60 to 300 seconds.
 
-If you are strugling with playing the mod have a look at the bottom of this readme to find some useful tips and tricks. Or you can modify certain things in the config.
+This fork is migrated for Lethal Company v81 and is intended as a drop-in replacement for the original Facility Meltdown. It works with vanilla content, most custom moons, and interiors.
+
+### A modded moon turns red
+
+Some custom moon creators do not set up lighting in the same way as vanilla moons. That can make a meltdown tint the moon red. The moon needs explicit support from its creator; Facility Meltdown cannot safely correct every custom lighting setup.
 
 ## Credits
 Music and voice lines come from portal 2. I love portal 2.
 
 ## What this mod adds
-- A 2 minute meltdown sequence where everything begins to go wrong inside the facility. After the 2 minutes is up the nuclear reactor blows up into a fireball that will engulf you if you aren't fast enough.
-- A new piece of Equipment - the Geiger Counter! For just 90 credits you can be surverying the area for radiation in no time! Use it to find the appartus or other places of radioactive significance.
-- A new terminal command - "reactor health"! When the facility's reactor is melting down you need information! The reactor health command is here to provide you with vital information on how much time left you have until the facility goes catastrophic. It also includes what the company thinks you should do at this moment.
+- A configurable meltdown sequence with emergency lights, warning announcements, interior failures, bonus enemy spawns, and a final fireball.
+- An optional HUD countdown. It uses the host-selected duration and reaches zero at detonation.
+- Escalating tension shakes during the second half of a meltdown, in addition to the existing intermittent environmental shakes.
+- A Geiger Counter available from the terminal for 90 credits. Use it to find radiation sources, including the apparatus.
+- The `reactor health` terminal command, which reports remaining time and reactor instability.
+- A Mirage compatibility fix: unsupported masked-enemy entries are ignored safely instead of preventing the sequence from starting.
 
-## Custom Music
-### with PizzaTowerEscapeMusic
-FacilityMeltdown itself doesn't support custom music. However, this tutorial made by "platinumbin" on Discord shows you how to use the [PizzaTowerEscapeMusic](https://thunderstore.io/c/lethal-company/p/BGN/PizzaTowerEscapeMusic/) mod to add custom music.
-Link to tutorial: https://www.youtube.com/watch?v=D5hKkSLlEhk
+## Custom sounds
 
-### with loaforcsSoundAPI
-[loaforcsSoundAPI](https://thunderstore.io/c/lethal-company/p/loaforc/loaforcsSoundAPI/) is a mod I built specfically for the LR team. There is a template avaliable [here](https://github.com/LoafOrc/loaforcsSoundAPI-examples), otherwise read the [getting started wiki](https://github.com/LoafOrc/loaforcsSoundAPI/wiki/Making-a-simple-Sound%E2%80%90Pack).
-It is optional, but enables the included dynamic warning-voice mappings and its meltdown-state conditions.
+[loaforc's SoundAPI](https://thunderstore.io/c/lethal-company/p/loaforc/loaforcsSoundAPI/) is optional. When installed, it can replace the meltdown music and warning voices through the included mappings and exposes meltdown-state conditions for sound packs. The fork includes its normal music, announcements, shockwave, and explosion sounds without SoundAPI.
 
 ### with Diomedes
 [Diomedes](https://thunderstore.io/c/lethal-company/p/DiomedesLC/Diomedes/) is optional. When present, FacilityMeltdown adds bingo challenges for triggering a meltdown on any moon, Embrion, Artifice, or Titan.
 
 ## Config
-All Facility Meltdown settings now live in one file: `me.loaforc.facilitymeltdown.cfg`. On first launch after upgrading, values from the former `me.loaforc.facilitymeltdown.Client.cfg` are copied into that file; the old file is then unused and can be removed.
+All Facility Meltdown settings live in one file: `me.loaforc.facilitymeltdown.cfg`. On first launch after upgrading, values from the former `me.loaforc.facilitymeltdown.Client.cfg` are copied into that file; the old file is then unused and can be removed.
 
 Set `ApparatusValueMin` and `ApparatusValueMax` to choose an inclusive apparatus-value range. The selected value is deterministic for that moon, so every player receives the same value. Set both values to the same number to keep a fixed value. WeatherRegistry multiplication, if enabled, is applied afterward.
 
-The file also contains bonus enemy spawns, emergency lights, required nearby players, Maneater behavior, ship-departure countdown shortening, excluded enemies, reactor-health scans, WeatherRegistry value multiplication, meltdown duration, music/announcement volume, outside music, camera shake, particles, the optional countdown HUD, and language. The countdown tracks the host's active meltdown duration and reaches zero when the explosion occurs.
+The file also contains bonus enemy spawns, emergency lights, required nearby players, Maneater behavior, ship-departure countdown shortening, excluded enemies, reactor-health scans, WeatherRegistry value multiplication, meltdown duration, music/announcement volume, outside music, camera shake, particles, the optional countdown HUD, and language. Changes to the duration apply to the next meltdown; every player receives that chosen duration when it starts.
 
-### OPTIONAL ingame config editors
-[lethalconfig](https://thunderstore.io/c/lethal-company/p/AinaVT/LethalConfig/) lets you edit the settings in-game. LethalSettings is no longer supported by the current build.
+### Optional in-game config editor
+
+[LethalConfig](https://thunderstore.io/c/lethal-company/p/AinaVT/LethalConfig/) lets you edit the settings in-game. LethalSettings is not supported by this build.
 
 ### Tips and Tricks
-- Make sure you plan your route before you take it. It's most likely you have time to double check you know where to go.
-- Having someone at the ship and running the "reactor health" command can give vital information on how much time you have left.
-- Pay attention to the inside of the facility! As the reactor inside of the facility begins to fail you'll notice more and more explosions happening. You'll also get another radiation warning at exactly halfway.
-- Your ship is safe from the explosion! The ship will automatically take off as the explosion occurs. As long as you are inside the ship before it takes off you will be 100% safe.
-- Lastly is to stay calm! It can be hard with all the enemies, noises and explosions but panicking is the easiest way to lose focus and forget where to go.
+- Plan your escape route before pulling the apparatus.
+- A player at the ship can use `reactor health` to monitor the remaining time.
+- Facility failures intensify as the reactor destabilizes; the later countdown is deliberately more violent.
+- The ship is safe from the explosion and automatically leaves at detonation. Be aboard before then.
