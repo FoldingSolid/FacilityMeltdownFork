@@ -1,0 +1,3700 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
+using System.Security;
+using System.Security.Permissions;
+using System.Text;
+using BepInEx;
+using BepInEx.Bootstrap;
+using BepInEx.Configuration;
+using BepInEx.Logging;
+using Biodiversity.Util.Assetloading;
+using Dawn;
+using Diomedes.Client;
+using Diomedes.Client.API;
+using Diomedes.Client.GameMode.Bingo;
+using FacilityMeltdown.API;
+using FacilityMeltdown.Behaviours;
+using FacilityMeltdown.Config;
+using FacilityMeltdown.Equipment;
+using FacilityMeltdown.Integrations;
+using FacilityMeltdown.Integrations.SoundAPI;
+using FacilityMeltdown.Lang;
+using FacilityMeltdown.MeltdownSequence.Behaviours;
+using FacilityMeltdown.NetcodePatcher;
+using FacilityMeltdown.Patches;
+using FacilityMeltdown.Util;
+using FacilityMeltdown.Util.Attributes;
+using FacilityMeltdown.Util.Config;
+using GameNetcodeStuff;
+using HarmonyLib;
+using LethalConfig;
+using LethalConfig.ConfigItems;
+using LethalConfig.ConfigItems.Options;
+using LethalSettings.UI;
+using LethalSettings.UI.Components;
+using LobbyCompatibility.Enums;
+using LobbyCompatibility.Features;
+using Microsoft.CodeAnalysis;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
+using Unity.Collections;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.Events;
+using UnityEngine.Rendering.HighDefinition;
+using WeatherRegistry;
+using loaforcsSoundAPI;
+using loaforcsSoundAPI.Core.Data;
+using loaforcsSoundAPI.SoundPacks.Data.Conditions;
+
+[assembly: CompilationRelaxations(8)]
+[assembly: RuntimeCompatibility(WrapNonExceptionThrows = true)]
+[assembly: Debuggable(DebuggableAttribute.DebuggingModes.IgnoreSymbolStoreSequencePoints)]
+[assembly: TargetFramework(".NETStandard,Version=v2.1", FrameworkDisplayName = ".NET Standard 2.1")]
+[assembly: IgnoresAccessChecksTo("com.github.teamxiaolan.dawnlib")]
+[assembly: IgnoresAccessChecksTo("WeatherRegistry")]
+[assembly: AssemblyCompany("FacilityMeltdown")]
+[assembly: AssemblyConfiguration("Release")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyInformationalVersion("1.0.0+74a2b8f0ecd190d1420e40c840c77a124518a3f9")]
+[assembly: AssemblyProduct("FacilityMeltdown")]
+[assembly: AssemblyTitle("FacilityMeltdown")]
+[assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
+[assembly: AssemblyVersion("1.0.0.0")]
+[module: UnverifiableCode]
+[module: RefSafetyRules(11)]
+[module: NetcodePatchedAssembly]
+namespace Microsoft.CodeAnalysis
+{
+	[CompilerGenerated]
+	[Microsoft.CodeAnalysis.Embedded]
+	internal sealed class EmbeddedAttribute : Attribute
+	{
+	}
+}
+namespace System.Runtime.CompilerServices
+{
+	[CompilerGenerated]
+	[Microsoft.CodeAnalysis.Embedded]
+	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Event | AttributeTargets.Parameter | AttributeTargets.ReturnValue | AttributeTargets.GenericParameter, AllowMultiple = false, Inherited = false)]
+	internal sealed class NullableAttribute : Attribute
+	{
+		public readonly byte[] NullableFlags;
+
+		public NullableAttribute(byte P_0)
+		{
+			NullableFlags = new byte[1] { P_0 };
+		}
+
+		public NullableAttribute(byte[] P_0)
+		{
+			NullableFlags = P_0;
+		}
+	}
+	[CompilerGenerated]
+	[Microsoft.CodeAnalysis.Embedded]
+	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Method | AttributeTargets.Interface | AttributeTargets.Delegate, AllowMultiple = false, Inherited = false)]
+	internal sealed class NullableContextAttribute : Attribute
+	{
+		public readonly byte Flag;
+
+		public NullableContextAttribute(byte P_0)
+		{
+			Flag = P_0;
+		}
+	}
+	[CompilerGenerated]
+	[Microsoft.CodeAnalysis.Embedded]
+	[AttributeUsage(AttributeTargets.Module, AllowMultiple = false, Inherited = false)]
+	internal sealed class RefSafetyRulesAttribute : Attribute
+	{
+		public readonly int Version;
+
+		public RefSafetyRulesAttribute(int P_0)
+		{
+			Version = P_0;
+		}
+	}
+}
+namespace Biodiversity.Util.Assetloading
+{
+	[AttributeUsage(AttributeTargets.Property)]
+	internal class LoadFromBundleAttribute : Attribute
+	{
+		public string BundleFile { get; private set; }
+
+		public LoadFromBundleAttribute(string bundleFile)
+		{
+			BundleFile = bundleFile;
+			base..ctor();
+		}
+	}
+}
+namespace FacilityMeltdown
+{
+	public static class MeltdownKeys
+	{
+		public static readonly NamespacedKey<DawnItemInfo> GeigerCounter = NamespacedKey<DawnItemInfo>.From("facility_meltdown", "geiger_counter");
+	}
+	public static class MeltdownTags
+	{
+		public static readonly NamespacedKey NotSpawnable = NamespacedKey.From("facility_meltdown", "meltdown_not_spawnable");
+	}
+	[BepInPlugin("me.loaforc.facilitymeltdown", "FacilityMeltdown", "2.7.5")]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[BepInDependency(/*Could not decode attribute arguments.*/)]
+	[CompatibleDependency("ainavt.lc.lethalconfig", typeof(LethalConfigIntergration))]
+	[CompatibleDependency("BMX.LobbyCompatibility", typeof(LobbyCompatibilityIntegration))]
+	[CompatibleDependency("mrov.WeatherRegistry", typeof(WeatherRegistryIntegration))]
+	[CompatibleDependency("me.loaforc.soundapi", typeof(SoundAPIIntegration))]
+	[CompatibleDependency("me.loaforc.diomedes", typeof(DiomedesIntergration))]
+	public class MeltdownPlugin : BaseUnityPlugin
+	{
+		internal const string modGUID = "me.loaforc.facilitymeltdown";
+
+		internal const string modName = "FacilityMeltdown";
+
+		internal const string modVersion = "2.7.5";
+
+		internal static MeltdownPlugin instance;
+
+		internal static ManualLogSource logger;
+
+		internal static Harmony harmony = new Harmony("me.loaforc.facilitymeltdown");
+
+		internal static MeltdownAssets assets { get; private set; }
+
+		public static bool loadedFully { get; private set; } = false;
+
+
+		internal static MeltdownConfig config { get; set; }
+
+		internal static MeltdownClientConfig clientConfig { get; private set; }
+
+		private void Awake()
+		{
+			if (!((Object)(object)instance == (Object)null))
+			{
+				return;
+			}
+			instance = this;
+			logger = Logger.CreateLogSource("me.loaforc.facilitymeltdown");
+			if (RunLoadStep("Assets.Init", "Getting assets", delegate
+			{
+				assets = new MeltdownAssets();
+			}) && RunLoadStep("LangParser.Init", "Getting possible languages", LangParser.Init) && RunLoadStep("new MeltdownConfig()", "Setting up config", delegate
+			{
+				//IL_0032: Unknown result type (might be due to invalid IL or missing references)
+				//IL_003c: Expected O, but got Unknown
+				config = new MeltdownConfig(((BaseUnityPlugin)this).Config);
+				clientConfig = new MeltdownClientConfig(new ConfigFile(Utility.CombinePaths(new string[2]
+				{
+					Paths.ConfigPath,
+					"me.loaforc.facilitymeltdown.Client.cfg"
+				}), false, MetadataHelper.GetMetadata((object)this)));
+				logger.LogDebug((object)$"Test Config Value: {config.ApparatusValue}");
+				((BaseUnityPlugin)this).Config.ClearOrphans();
+				clientConfig.configFile.ClearOrphans();
+			}) && RunLoadStep("LangParser.SetLanguage", "Setting language", delegate
+			{
+				LangParser.SetLanguage(clientConfig.Language);
+			}) && RunLoadStep("RegisterPatches", "Integrating into LethalCompany", RegisterPatches) && RunLoadStep("RegisterNetworking", "Making sure everything is networked", RegisterNetworking))
+			{
+				if (!RunLoadStep("RegisterItems", "Adding the Geiger Counter", RegisterItems))
+				{
+					logger.LogWarning((object)"Failed to register the geiger counter.");
+				}
+				if (!RunLoadStep("CompatibleDependency.Init", "Checking for any soft dependencies", delegate
+				{
+					CompatibleDependencyAttribute.Init((BaseUnityPlugin)(object)this);
+				}))
+				{
+					logger.LogWarning((object)"Doing something with soft dependencies broke, meltdown itself should be fine.");
+				}
+				loadedFully = true;
+				logger.LogInfo((object)"FacilityMeltdown:2.7.5 by loaforc has loaded! have fun :3");
+				logger.LogInfo((object)"         .-_; ;_-.          ");
+				logger.LogInfo((object)"        / /     \\ \\        ");
+				logger.LogInfo((object)"       | |       | |      ");
+				logger.LogInfo((object)"        \\ \\.---./ /       ");
+				logger.LogInfo((object)"  .-\\\"\"~   .---.   ~\"\"-.");
+				logger.LogInfo((object)" ,`.-~// .'`---`'. \\\\~-.`,");
+				logger.LogInfo((object)" ' `   | | \\(_)/ | |   `' ");
+				logger.LogInfo((object)"  ,    \\  \\ | | /  /    , ");
+				logger.LogInfo((object)"  ;`'.,_\\  `-'-'  /_,.'`; ");
+				logger.LogInfo((object)"   '-._  _.-'^'-._  _.-'    ");
+			}
+		}
+
+		private bool RunLoadStep(string stepName, string descrption, Action callback)
+		{
+			try
+			{
+				callback();
+			}
+			catch (Exception ex)
+			{
+				logger.LogError((object)("`" + stepName + "` caused an exception to be thrown, meltdown may or may not work, look for more errors."));
+				logger.LogError((object)ex);
+				return false;
+			}
+			logger.LogInfo((object)(stepName.PadRight(25) + " == " + descrption));
+			return true;
+		}
+
+		private void RegisterItems()
+		{
+			logger.LogInfo((object)"Registering Items");
+			DawnLib.DefineItem(MeltdownKeys.GeigerCounter, assets.geigerCounterItemDef, (Action<ItemInfoBuilder>)delegate(ItemInfoBuilder item)
+			{
+				item.DefineShop((Action<ShopBuilder>)delegate(ShopBuilder shopItem)
+				{
+					shopItem.OverrideCost(90).OverrideInfoNode(assets.geigerCounterNode);
+				});
+			});
+			((Registry<DawnItemInfo>)(object)LethalContent.Items).OnFreeze += delegate
+			{
+				if (config.OverrideApparatusValue)
+				{
+					((Registry<DawnItemInfo>)(object)LethalContent.Items)[ItemKeys.Apparatus].Item.minValue = config.ApparatusValue;
+					((Registry<DawnItemInfo>)(object)LethalContent.Items)[ItemKeys.Apparatus].Item.maxValue = config.ApparatusValue;
+				}
+			};
+		}
+
+		private void OnDisable()
+		{
+			if (!loadedFully)
+			{
+				Harmony.UnpatchID("me.loaforc.facilitymeltdown");
+				logger.LogInfo((object)"Unpatching as something failed while loading.");
+			}
+			else if (Chainloader.PluginInfos.ContainsKey("den.meltdownchance") || Chainloader.PluginInfos.ContainsKey("PizzaProbability"))
+			{
+				logger.LogInfo((object)"You are using a mod that makes meltdown have a random chance of occuring.");
+				logger.LogInfo((object)"Keep in mind this goes against meltdown's core design, but your choice.");
+				logger.LogWarning((object)"However; BY DESIGN these mods need to mess with the internals of meltdown");
+				logger.LogWarning((object)"so I personally will be offering low to no support with these mods installed.");
+			}
+		}
+
+		private void RegisterNetworking()
+		{
+			Type[] array = new Type[2]
+			{
+				typeof(MeltdownHandler),
+				typeof(GeigerCounterItem)
+			};
+			Type[] array2 = array;
+			foreach (Type type in array2)
+			{
+				try
+				{
+					MethodInfo[] methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic);
+					MethodInfo[] array3 = methods;
+					foreach (MethodInfo methodInfo in array3)
+					{
+						object[] customAttributes = methodInfo.GetCustomAttributes(typeof(RuntimeInitializeOnLoadMethodAttribute), inherit: false);
+						if (customAttributes.Length != 0)
+						{
+							methodInfo.Invoke(null, null);
+						}
+					}
+				}
+				catch (Exception)
+				{
+					logger.LogWarning((object)"supressed an error from netcode patcher, probably fine but should still log that something happened.");
+				}
+			}
+		}
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private void RegisterPatches()
+		{
+			foreach (Type item in from t in Assembly.GetExecutingAssembly().GetLoadableTypes()
+				where t.IsClass && t.Namespace == "FacilityMeltdown.Patches"
+				select t)
+			{
+				logger.LogDebug((object)("Registering Patch handler: " + item.Name));
+				harmony.PatchAll(item);
+			}
+		}
+	}
+	internal static class ExtensionMethods
+	{
+		private static Random rng = new Random();
+
+		public static void Shuffle<T>(this IList<T> list)
+		{
+			int num = list.Count;
+			while (num > 1)
+			{
+				num--;
+				int index = rng.Next(num + 1);
+				T value = list[index];
+				list[index] = list[num];
+				list[num] = value;
+			}
+		}
+
+		public static float Remap(this float value, float from1, float to1, float from2, float to2)
+		{
+			return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
+		}
+
+		public static List<PlayerControllerB> GetConnectedPlayers(this StartOfRound startOfRound)
+		{
+			return startOfRound.allPlayerScripts.Where((PlayerControllerB player) => player.isPlayerControlled).ToList();
+		}
+
+		public static void SpawnEnemy(this EnemyVent vent, SpawnableEnemyWithRarity enemy)
+		{
+			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+			//IL_000b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0012: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0028: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0034: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0039: Unknown result type (might be due to invalid IL or missing references)
+			Vector3 position = vent.floorNode.position;
+			float y = vent.floorNode.eulerAngles.y;
+			GameObject val = Object.Instantiate<GameObject>(enemy.enemyType.enemyPrefab, position, Quaternion.Euler(new Vector3(0f, y, 0f)));
+			EnemyAI component = val.GetComponent<EnemyAI>();
+			((NetworkBehaviour)component).NetworkObject.Spawn(true);
+			RoundManager.Instance.SpawnedEnemies.Add(component);
+			vent.OpenVentClientRpc();
+			vent.occupied = false;
+		}
+
+		internal static string Translate(this string text)
+		{
+			return LangParser.GetTranslation(text);
+		}
+
+		internal static void ClearOrphans(this ConfigFile config)
+		{
+			PropertyInfo property = ((object)config).GetType().GetProperty("OrphanedEntries", BindingFlags.Instance | BindingFlags.NonPublic);
+			Dictionary<ConfigDefinition, string> dictionary = (Dictionary<ConfigDefinition, string>)property.GetValue(config, null);
+			dictionary.Clear();
+			config.Save();
+		}
+
+		internal static IEnumerable<Type> GetLoadableTypes(this Assembly assembly)
+		{
+			if (assembly == null)
+			{
+				throw new ArgumentNullException("assembly");
+			}
+			try
+			{
+				return assembly.GetTypes();
+			}
+			catch (ReflectionTypeLoadException ex)
+			{
+				return ex.Types.Where((Type t) => t != null);
+			}
+		}
+
+		internal static (int hours, int minutes) GetCurrentTime(this TimeOfDay timeOfDay)
+		{
+			int num = Mathf.FloorToInt(timeOfDay.normalizedTimeOfDay * 60f * (float)timeOfDay.numberOfHours + 360f);
+			int item = Mathf.FloorToInt((float)(num / 60));
+			return (item, num % 60);
+		}
+	}
+	internal class MeltdownAssets : AssetBundleLoader<MeltdownAssets>
+	{
+		[LoadFromBundle("meltdownmusic.mp3")]
+		public AudioClip defaultMusic { get; private set; }
+
+		[LoadFromBundle("shockwave.mp3")]
+		public AudioClip shockwave { get; private set; }
+
+		[LoadFromBundle("FacilityExplosion.prefab")]
+		public GameObject facilityExplosionPrefab { get; private set; }
+
+		[LoadFromBundle("MeltdownHandler.prefab")]
+		public GameObject meltdownHandlerPrefab { get; private set; }
+
+		[LoadFromBundle("Shockwave.prefab")]
+		public GameObject shockwavePrefab { get; private set; }
+
+		[LoadFromBundle("GeigerCounterItemDef.asset")]
+		public Item geigerCounterItemDef { get; private set; }
+
+		[LoadFromBundle("GeigerCounterNode.asset")]
+		public TerminalNode geigerCounterNode { get; private set; }
+
+		[LoadFromBundle("HealthKeyword.asset")]
+		public TerminalKeyword healthKeyword { get; private set; }
+
+		[LoadFromBundle("ReactorKeyword.asset")]
+		public TerminalKeyword reactorKeyword { get; private set; }
+
+		[LoadFromBundle("ReactorHealthReport.asset")]
+		public TerminalNode reactorHealthNode { get; private set; }
+
+		public GameObject[] facilityEffects { get; private set; }
+
+		public AudioClip[] warnings { get; private set; }
+
+		public MeltdownAssets()
+			: base("facilitymeltdown")
+		{
+		}
+
+		protected override void FinishLoadingAssets(AssetBundle bundle)
+		{
+			warnings = (AudioClip[])(object)new AudioClip[4]
+			{
+				LoadAsset<AudioClip>(bundle, "warning1.mp3"),
+				LoadAsset<AudioClip>(bundle, "warning2.mp3"),
+				LoadAsset<AudioClip>(bundle, "warning3.mp3"),
+				LoadAsset<AudioClip>(bundle, "warning4.mp3")
+			};
+			facilityEffects = (GameObject[])(object)new GameObject[2]
+			{
+				LoadAsset<GameObject>(bundle, "Dust.prefab"),
+				LoadAsset<GameObject>(bundle, "Waterstream.prefab")
+			};
+			TerminalPatch.terminalKeywordsToRegister.Add(healthKeyword);
+			TerminalPatch.terminalKeywordsToRegister.Add(reactorKeyword);
+			TerminalPatch.terminalNodesToRegister.Add(reactorHealthNode);
+		}
+	}
+}
+namespace FacilityMeltdown.Util
+{
+	internal abstract class AssetBundleLoader<T> where T : AssetBundleLoader<T>
+	{
+		public AssetBundleLoader(string filePath)
+		{
+			AssetBundle val = AssetBundle.LoadFromFile(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), filePath));
+			MeltdownPlugin.logger.LogDebug((object)("[Assets] AssetBundle `" + filePath + "` contains these objects: \n" + string.Join("\n", val.GetAllAssetNames())));
+			Type typeFromHandle = typeof(T);
+			PropertyInfo[] properties = typeFromHandle.GetProperties();
+			foreach (PropertyInfo propertyInfo in properties)
+			{
+				LoadFromBundleAttribute loadFromBundleAttribute = (LoadFromBundleAttribute)propertyInfo.GetCustomAttribute(typeof(LoadFromBundleAttribute));
+				if (loadFromBundleAttribute != null)
+				{
+					MeltdownPlugin.logger.LogDebug((object)("[Assets] Got LoadFromBundle attribute on `" + propertyInfo.Name + "`. Loading asset: `" + loadFromBundleAttribute.BundleFile + "` into the [roperty."));
+					propertyInfo.SetValue(this, LoadAsset<Object>(val, loadFromBundleAttribute.BundleFile.ToLower(CultureInfo.GetCultureInfo("en-GB"))));
+				}
+			}
+			GameObject[] array = val.LoadAllAssets<GameObject>();
+			foreach (GameObject val2 in array)
+			{
+				if (!((Object)(object)val2.GetComponent<NetworkObject>() == (Object)null) && !GameNetworkManagerPatch.networkPrefabsToRegister.Contains(val2))
+				{
+					GameNetworkManagerPatch.networkPrefabsToRegister.Add(val2);
+				}
+			}
+			FinishLoadingAssets(val);
+		}
+
+		protected virtual void FinishLoadingAssets(AssetBundle bundle)
+		{
+		}
+
+		protected AssetType LoadAsset<AssetType>(AssetBundle bundle, string path) where AssetType : Object
+		{
+			AssetType val = bundle.LoadAsset<AssetType>(path);
+			if ((Object)(object)val == (Object)null)
+			{
+				throw new ArgumentException(path + " is not valid in the assetbundle!");
+			}
+			return val;
+		}
+	}
+}
+namespace FacilityMeltdown.Util.Config
+{
+	[AttributeUsage(AttributeTargets.Property)]
+	internal class ConfigDescAttribute : Attribute
+	{
+		public string Description { get; private set; }
+
+		public ConfigDescAttribute(string desc)
+		{
+			Description = desc;
+			base..ctor();
+		}
+	}
+	[AttributeUsage(AttributeTargets.Property)]
+	internal class ConfigGroupAttribute : Attribute
+	{
+		public string Group { get; private set; }
+
+		public ConfigGroupAttribute(string Group)
+		{
+			this.Group = Group;
+			base..ctor();
+		}
+	}
+	[AttributeUsage(AttributeTargets.Property)]
+	internal class ConfigIgnoreAttribute : Attribute
+	{
+	}
+	[AttributeUsage(AttributeTargets.Property)]
+	internal class ConfigRangeAttribute : Attribute
+	{
+		internal float Min { get; private set; }
+
+		internal float Max { get; private set; }
+
+		internal ConfigRangeAttribute(float min, float max)
+		{
+			Min = min;
+			Max = max;
+		}
+	}
+	[Serializable]
+	internal abstract class LoafConfig<T> where T : LoafConfig<T>
+	{
+		internal List<(PropertyInfo, object)> configEntries = new List<(PropertyInfo, object)>();
+
+		internal ConfigFile configFile { get; private set; }
+
+		public LoafConfig(ConfigFile configFile)
+		{
+			//IL_00bd: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00c4: Expected O, but got Unknown
+			//IL_0148: Unknown result type (might be due to invalid IL or missing references)
+			//IL_014f: Expected O, but got Unknown
+			//IL_0137: Unknown result type (might be due to invalid IL or missing references)
+			//IL_013e: Expected O, but got Unknown
+			//IL_0114: Unknown result type (might be due to invalid IL or missing references)
+			//IL_011b: Expected O, but got Unknown
+			if (configFile == null)
+			{
+				return;
+			}
+			this.configFile = configFile;
+			string header = "Misc";
+			Type typeFromHandle = typeof(T);
+			PropertyInfo[] properties = typeFromHandle.GetProperties();
+			foreach (PropertyInfo propertyInfo in properties)
+			{
+				if (propertyInfo.GetCustomAttribute(typeof(ConfigIgnoreAttribute)) == null)
+				{
+					ConfigGroupAttribute configGroupAttribute = (ConfigGroupAttribute)propertyInfo.GetCustomAttribute(typeof(ConfigGroupAttribute));
+					if (configGroupAttribute != null)
+					{
+						header = configGroupAttribute.Group.Replace(" ", "");
+					}
+					string text = "no description here :pensive:";
+					ConfigDescAttribute configDescAttribute = (ConfigDescAttribute)propertyInfo.GetCustomAttribute(typeof(ConfigDescAttribute));
+					if (configDescAttribute != null)
+					{
+						text = configDescAttribute.Description;
+					}
+					ConfigDescription val = new ConfigDescription(text, (AcceptableValueBase)null, Array.Empty<object>());
+					ConfigRangeAttribute configRangeAttribute = (ConfigRangeAttribute)propertyInfo.GetCustomAttribute(typeof(ConfigRangeAttribute));
+					val = ((configRangeAttribute == null) ? new ConfigDescription(text, (AcceptableValueBase)null, Array.Empty<object>()) : ((!(propertyInfo.PropertyType == typeof(int))) ? new ConfigDescription(text, (AcceptableValueBase)(object)new AcceptableValueRange<float>(configRangeAttribute.Min, configRangeAttribute.Max), Array.Empty<object>()) : new ConfigDescription(text, (AcceptableValueBase)(object)new AcceptableValueRange<int>((int)configRangeAttribute.Min, (int)configRangeAttribute.Max), Array.Empty<object>())));
+					if (propertyInfo.PropertyType == typeof(float))
+					{
+						BindProperty<float>(propertyInfo, header, val);
+					}
+					if (propertyInfo.PropertyType == typeof(int))
+					{
+						BindProperty<int>(propertyInfo, header, val);
+					}
+					if (propertyInfo.PropertyType == typeof(string))
+					{
+						BindProperty<string>(propertyInfo, header, val);
+					}
+					if (propertyInfo.PropertyType == typeof(bool))
+					{
+						BindProperty<bool>(propertyInfo, header, val);
+					}
+				}
+			}
+		}
+
+		protected void BindProperty<V>(PropertyInfo property, string header, ConfigDescription description)
+		{
+			ConfigEntry<V> val = configFile.Bind<V>(header, property.Name, (V)property.GetValue(this), description);
+			configEntries.Add((property, val));
+			property.SetValue(this, val.Value);
+		}
+	}
+	internal abstract class LoafSyncedConfig<T> : LoafConfig<T> where T : LoafSyncedConfig<T>
+	{
+		internal static T Default { get; private set; }
+
+		internal LoafSyncedConfig(ConfigFile file)
+			: base(file)
+		{
+			if (Default == null)
+			{
+				Default = (T)this;
+			}
+		}
+	}
+	[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
+	internal class RequiresRestartAttribute : Attribute
+	{
+		public bool RequiresRestart { get; private set; }
+
+		public RequiresRestartAttribute(bool requiresRestart = true)
+		{
+			RequiresRestart = requiresRestart;
+			base..ctor();
+		}
+	}
+}
+namespace FacilityMeltdown.Util.Attributes
+{
+	internal class CompatibleDependencyAttribute : BepInDependency
+	{
+		public Type Handler;
+
+		public CompatibleDependencyAttribute(string guid, Type handlerType)
+			: base(guid, (DependencyFlags)2)
+		{
+			Handler = handlerType;
+		}
+
+		public static void Init(BaseUnityPlugin source)
+		{
+			IEnumerable<CompatibleDependencyAttribute> customAttributes = ((MemberInfo)((object)source).GetType()).GetCustomAttributes<CompatibleDependencyAttribute>();
+			foreach (CompatibleDependencyAttribute item in customAttributes)
+			{
+				if (Chainloader.PluginInfos.ContainsKey(((BepInDependency)item).DependencyGUID))
+				{
+					try
+					{
+						item.Handler.GetMethod("Initialize", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, null);
+					}
+					catch (Exception ex)
+					{
+						MeltdownPlugin.logger.LogDebug((object)("Couldn't setup integration with '" + ((BepInDependency)item).DependencyGUID + "'"));
+						MeltdownPlugin.logger.LogDebug((object)ex);
+					}
+					item.Handler = null;
+				}
+			}
+		}
+	}
+}
+namespace FacilityMeltdown.Patches
+{
+	[HarmonyPatch(typeof(LungProp))]
+	internal static class ApparaticePatch
+	{
+		[HarmonyPrefix]
+		[HarmonyPatch("EquipItem")]
+		[HarmonyWrapSafe]
+		internal static void BeginMeltdownSequence(LungProp __instance, ref bool ___isLungDocked)
+		{
+			if (((NetworkBehaviour)__instance).IsHost && ___isLungDocked && !MeltdownAPI.MeltdownStarted)
+			{
+				GameObject val = Object.Instantiate<GameObject>(MeltdownPlugin.assets.meltdownHandlerPrefab);
+				val.GetComponent<MeltdownHandler>().causingLungProp = __instance;
+				val.GetComponent<NetworkObject>().Spawn(false);
+			}
+		}
+
+		[HarmonyFinalizer]
+		[HarmonyPatch("EquipItem")]
+		[HarmonyWrapSafe]
+		private static void CatchOtherModsBreakingRandomStuff(LungProp __instance, Exception __exception)
+		{
+			if (((NetworkBehaviour)__instance).IsHost)
+			{
+				MeltdownPlugin.logger.LogDebug((object)"finalizer is running..");
+				if (__instance.isLungDocked)
+				{
+					MeltdownPlugin.logger.LogError((object)"!!! isLungDocked is still true, things are broken! It'll try to salvage it to make sure nothing is very broken, but the meltdown sequence may not have started!");
+					__instance.isLungDocked = false;
+				}
+			}
+		}
+
+		[HarmonyPrefix]
+		[HarmonyPatch("Start")]
+		[HarmonyWrapSafe]
+		internal static void AddRadiationSource(LungProp __instance)
+		{
+			if (!StartOfRound.Instance.inShipPhase)
+			{
+				MeltdownMoonMapper.EnsureMeltdownMoonMapper();
+				MeltdownInteriorMapper.EnsureMeltdownInteriorMapper();
+			}
+			RadiationSource radiationSource = ((Component)__instance).gameObject.AddComponent<RadiationSource>();
+			radiationSource.radiationAmount = 80f;
+			radiationSource.radiationDistance = 60f;
+			if (MeltdownPlugin.config.OverrideApparatusValue)
+			{
+				((GrabbableObject)__instance).scrapValue = Mathf.RoundToInt((float)MeltdownPlugin.config.ApparatusValue);
+				try
+				{
+					if (WeatherRegistryIntegration.Enabled)
+					{
+						((GrabbableObject)__instance).scrapValue = Mathf.RoundToInt((float)((GrabbableObject)__instance).scrapValue * WeatherRegistryIntegration.GetWeatherMultiplier());
+					}
+				}
+				catch (Exception ex)
+				{
+					MeltdownPlugin.logger.LogWarning((object)ex.ToString());
+				}
+			}
+			MeltdownPlugin.logger.LogDebug((object)((GrabbableObject)__instance).scrapValue);
+		}
+	}
+	[HarmonyPatch(typeof(BlobAI))]
+	internal class BlobAIPatch
+	{
+		[HarmonyPrefix]
+		[HarmonyPatch("Start")]
+		internal static void AddRadiationSource(BlobAI __instance)
+		{
+			RadiationSource radiationSource = ((Component)__instance).gameObject.AddComponent<RadiationSource>();
+			radiationSource.radiationAmount = 30f;
+			radiationSource.radiationDistance = 25f;
+		}
+	}
+	[HarmonyPatch(typeof(EntranceTeleport))]
+	internal static class EntranceTeleportPatch
+	{
+		[HarmonyPrefix]
+		[HarmonyPatch("FindExitPoint")]
+		private static bool dontAllowReneter(ref bool __result)
+		{
+			if ((Object)(object)MeltdownHandler.Instance != (Object)null && MeltdownHandler.Instance.HasExplosionOccured())
+			{
+				__result = false;
+				return false;
+			}
+			return true;
+		}
+	}
+	[HarmonyPatch(typeof(GameNetworkManager))]
+	internal class GameNetworkManagerPatch
+	{
+		internal static List<GameObject> networkPrefabsToRegister = new List<GameObject>();
+
+		[HarmonyPatch("Start")]
+		[HarmonyPrefix]
+		private static void AddNetworkPrefabs()
+		{
+			foreach (GameObject item in networkPrefabsToRegister)
+			{
+				NetworkManager.Singleton.AddNetworkPrefab(item);
+				MeltdownPlugin.logger.LogDebug((object)("Registered " + ((Object)item).name + " as a network prefab."));
+			}
+			MeltdownPlugin.logger.LogInfo((object)$"Succesfully registered {networkPrefabsToRegister.Count} network prefabs.");
+		}
+
+		[HarmonyPostfix]
+		[HarmonyPatch("StartDisconnect")]
+		public static void PlayerLeave()
+		{
+			MeltdownPlugin.config = LoafSyncedConfig<MeltdownConfig>.Default;
+		}
+	}
+	[HarmonyPatch(typeof(GrabbableObject))]
+	public class GrabbableObjectPatch
+	{
+		[HarmonyPrefix]
+		[HarmonyPatch("Update")]
+		internal static void ApplyMinPeople(GrabbableObject __instance)
+		{
+			LungProp apparatus = (LungProp)(object)((__instance is LungProp) ? __instance : null);
+			if (apparatus == null)
+			{
+				return;
+			}
+			if (!apparatus.isLungDocked)
+			{
+				if (!((GrabbableObject)apparatus).grabbable)
+				{
+					((GrabbableObject)apparatus).customGrabTooltip = "";
+					((GrabbableObject)apparatus).grabbable = true;
+				}
+				return;
+			}
+			int num = StartOfRound.Instance.GetConnectedPlayers().Count((PlayerControllerB player) => Vector3.Distance(((Component)player).transform.position, ((Component)apparatus).transform.position) < 15f);
+			int num2 = Mathf.Min(MeltdownPlugin.config.MinPeopleToPullApparatus, StartOfRound.Instance.livingPlayers);
+			if (num < num2 && TimeOfDay.Instance.GetCurrentTime().hours < 21)
+			{
+				((GrabbableObject)apparatus).customGrabTooltip = $"[ NEEDS {num2} PEOPLE ]";
+				((GrabbableObject)apparatus).grabbable = false;
+			}
+			else
+			{
+				((GrabbableObject)apparatus).customGrabTooltip = "";
+				((GrabbableObject)apparatus).grabbable = true;
+			}
+		}
+	}
+	[HarmonyPatch(typeof(PlayerControllerB))]
+	internal static class PlayerControllerPatch
+	{
+		[CompilerGenerated]
+		private static class <>O
+		{
+			public static HandleNamedMessageDelegate <0>__OnRequestSync;
+
+			public static HandleNamedMessageDelegate <1>__OnReceiveSync;
+		}
+
+		private const string MESSAGE_REQUEST = "meltdown_OnRequestConfigSync";
+
+		private const string MESSAGE_RECIEVE = "meltdown_OnRecieveConfigSync";
+
+		private const int IntSize = 4;
+
+		[HarmonyPostfix]
+		[HarmonyPatch("ConnectClientToPlayerObject")]
+		private static void SyncConfig()
+		{
+			//IL_005b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0060: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0066: Expected O, but got Unknown
+			//IL_002b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0030: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0036: Expected O, but got Unknown
+			if (NetworkManager.Singleton.IsHost)
+			{
+				CustomMessagingManager customMessagingManager = NetworkManager.Singleton.CustomMessagingManager;
+				object obj = <>O.<0>__OnRequestSync;
+				if (obj == null)
+				{
+					HandleNamedMessageDelegate val = OnRequestSync;
+					<>O.<0>__OnRequestSync = val;
+					obj = (object)val;
+				}
+				customMessagingManager.RegisterNamedMessageHandler("meltdown_OnRequestConfigSync", (HandleNamedMessageDelegate)obj);
+				return;
+			}
+			CustomMessagingManager customMessagingManager2 = NetworkManager.Singleton.CustomMessagingManager;
+			object obj2 = <>O.<1>__OnReceiveSync;
+			if (obj2 == null)
+			{
+				HandleNamedMessageDelegate val2 = OnReceiveSync;
+				<>O.<1>__OnReceiveSync = val2;
+				obj2 = (object)val2;
+			}
+			customMessagingManager2.RegisterNamedMessageHandler("meltdown_OnRecieveConfigSync", (HandleNamedMessageDelegate)obj2);
+			RequestSync();
+		}
+
+		public static void RequestSync()
+		{
+			//IL_0028: Unknown result type (might be due to invalid IL or missing references)
+			if (NetworkManager.Singleton.IsHost)
+			{
+				return;
+			}
+			FastBufferWriter val = default(FastBufferWriter);
+			((FastBufferWriter)(ref val))..ctor(4, (Allocator)2, -1);
+			try
+			{
+				NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("meltdown_OnRequestConfigSync", 0uL, val, (NetworkDelivery)3);
+			}
+			finally
+			{
+				((IDisposable)(FastBufferWriter)(ref val)).Dispose();
+			}
+		}
+
+		public static void OnRequestSync(ulong clientId, FastBufferReader _)
+		{
+			//IL_0052: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0058: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0078: Unknown result type (might be due to invalid IL or missing references)
+			if (!NetworkManager.Singleton.IsHost)
+			{
+				return;
+			}
+			MeltdownPlugin.logger.LogInfo((object)$"Config sync request received from client: {clientId}");
+			byte[] bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject((object)MeltdownPlugin.config));
+			int num = bytes.Length;
+			FastBufferWriter val = default(FastBufferWriter);
+			((FastBufferWriter)(ref val))..ctor(num + 4, (Allocator)2, -1);
+			try
+			{
+				((FastBufferWriter)(ref val)).WriteValueSafe<int>(ref num, default(ForPrimitives));
+				((FastBufferWriter)(ref val)).WriteBytesSafe(bytes, -1, 0);
+				NetworkManager.Singleton.CustomMessagingManager.SendNamedMessage("meltdown_OnRecieveConfigSync", clientId, val, (NetworkDelivery)3);
+			}
+			catch (Exception arg)
+			{
+				MeltdownPlugin.logger.LogInfo((object)$"Error occurred syncing config with client: {clientId}\n{arg}");
+			}
+			finally
+			{
+				((IDisposable)(FastBufferWriter)(ref val)).Dispose();
+			}
+		}
+
+		private static void OnReceiveSync(ulong _, FastBufferReader reader)
+		{
+			//IL_0020: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0026: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0078: Unknown result type (might be due to invalid IL or missing references)
+			//IL_007d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_008d: Expected O, but got Unknown
+			if (!((FastBufferReader)(ref reader)).TryBeginRead(4))
+			{
+				MeltdownPlugin.logger.LogError((object)"Config sync error: Could not begin reading buffer.");
+				return;
+			}
+			int num = default(int);
+			((FastBufferReader)(ref reader)).ReadValueSafe<int>(ref num, default(ForPrimitives));
+			if (!((FastBufferReader)(ref reader)).TryBeginRead(num))
+			{
+				MeltdownPlugin.logger.LogError((object)"Config sync error: Host could not sync.");
+				return;
+			}
+			byte[] bytes = new byte[num];
+			((FastBufferReader)(ref reader)).ReadBytesSafe(ref bytes, num, 0);
+			MeltdownPlugin.logger.LogDebug((object)Encoding.UTF8.GetString(bytes));
+			MeltdownPlugin.config = JsonConvert.DeserializeObject<MeltdownConfig>(Encoding.UTF8.GetString(bytes), new JsonSerializerSettings
+			{
+				ContractResolver = (IContractResolver)(object)new IncludePrivateSetterContractResolver()
+			});
+			MeltdownPlugin.logger.LogDebug((object)"Deserialized values are: ");
+			PropertyInfo[] properties = MeltdownPlugin.config.GetType().GetProperties();
+			foreach (PropertyInfo propertyInfo in properties)
+			{
+				MeltdownPlugin.logger.LogDebug((object)$"{propertyInfo.Name} => {propertyInfo.GetValue(MeltdownPlugin.config)}");
+			}
+			MeltdownPlugin.logger.LogInfo((object)"Successfully synced config with host.");
+		}
+	}
+	internal class IncludePrivateSetterContractResolver : DefaultContractResolver
+	{
+		protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
+		{
+			//IL_0002: Unknown result type (might be due to invalid IL or missing references)
+			JsonProperty val = ((DefaultContractResolver)this).CreateProperty(member, memberSerialization);
+			if (!val.Writable && member is PropertyInfo propertyInfo)
+			{
+				val.Writable = propertyInfo.GetSetMethod(nonPublic: true) != null;
+			}
+			return val;
+		}
+	}
+	[HarmonyPatch(typeof(StartMatchLever))]
+	internal static class StartMatchLeverPatch
+	{
+		[HarmonyPostfix]
+		[HarmonyPatch("EndGame")]
+		private static void ShortenMeltdownTimer()
+		{
+			if (Object.op_Implicit((Object)(object)MeltdownHandler.Instance) && MeltdownPlugin.config.ShortenMeltdownTimerOnShipLeave)
+			{
+				MeltdownHandler.Instance.meltdownTimer = 3f;
+			}
+		}
+	}
+	[HarmonyPatch(typeof(StartOfRound))]
+	internal static class StartOfRoundPatches
+	{
+		[HarmonyPrefix]
+		[HarmonyPatch("EndOfGame")]
+		internal static void UnloadMeltdownHandler()
+		{
+			if (Object.op_Implicit((Object)(object)MeltdownHandler.Instance))
+			{
+				Object.Destroy((Object)(object)((Component)MeltdownHandler.Instance).gameObject);
+			}
+			if (Object.op_Implicit((Object)(object)MeltdownMoonMapper.Instance))
+			{
+				Object.Destroy((Object)(object)((Component)MeltdownMoonMapper.Instance).gameObject);
+			}
+			if (Object.op_Implicit((Object)(object)MeltdownInteriorMapper.Instance))
+			{
+				Object.Destroy((Object)(object)((Component)MeltdownInteriorMapper.Instance).gameObject);
+			}
+		}
+	}
+	[HarmonyPatch(typeof(Terminal))]
+	internal class TerminalPatch
+	{
+		internal class ReactorHealthReport
+		{
+			public float reactorInstability;
+
+			public float timeRemaining;
+
+			public float generatedAt = Time.time;
+
+			public string GetFlavourText()
+			{
+				if (timeRemaining / (float)MeltdownPlugin.config.MeltdownTime > 0.75f)
+				{
+					return "reactorscan.result.flavour.start";
+				}
+				if (timeRemaining / (float)MeltdownPlugin.config.MeltdownTime > 0.5f)
+				{
+					return "reactorscan.result.flavour.low";
+				}
+				if (timeRemaining / (float)MeltdownPlugin.config.MeltdownTime > 0.33f)
+				{
+					return "reactorscan.result.flavour.medium";
+				}
+				if (timeRemaining / (float)MeltdownPlugin.config.MeltdownTime > 0.15f)
+				{
+					return "reactorscan.result.flavour.high";
+				}
+				return "";
+			}
+
+			public string GetTeminalOutput()
+			{
+				string text = "reactorscan.result.unstable".Translate();
+				text = SubstituteVariables(text);
+				return text + "\n\n" + SubstituteVariables(GetFlavourText().Translate()) + "\n\n";
+			}
+		}
+
+		internal static float lastHealthCheck = 0f;
+
+		internal static ReactorHealthReport lastReport = null;
+
+		internal static List<TerminalKeyword> terminalKeywordsToRegister = new List<TerminalKeyword>();
+
+		internal static List<TerminalNode> terminalNodesToRegister = new List<TerminalNode>();
+
+		internal static string SubstituteVariables(string text)
+		{
+			StringBuilder stringBuilder = new StringBuilder(text);
+			stringBuilder.Replace("<cooldown>", MeltdownPlugin.config.ShipScanCooldown.ToString());
+			stringBuilder.Replace("<instability>", lastReport.reactorInstability.ToString());
+			stringBuilder.Replace("<time_left>", lastReport.timeRemaining.ToString());
+			return stringBuilder.ToString();
+		}
+
+		internal static string GetTextForNode()
+		{
+			if (Object.op_Implicit((Object)(object)MeltdownHandler.Instance))
+			{
+				string text = "reactorscan.error.overheat";
+				if (ReactorHealthCheckReady())
+				{
+					lastHealthCheck = Time.time;
+					lastReport = GetNewReactorHealthReport();
+					text = "reactorscan.success";
+				}
+				return SubstituteVariables(text.Translate()) + lastReport.GetTeminalOutput();
+			}
+			return "reactorscan.result.stable".Translate();
+		}
+
+		internal static bool ReactorHealthCheckReady()
+		{
+			return Time.time >= lastHealthCheck + MeltdownPlugin.config.ShipScanCooldown;
+		}
+
+		internal static ReactorHealthReport GetNewReactorHealthReport()
+		{
+			float num = ((float)MeltdownPlugin.config.MeltdownTime - MeltdownHandler.Instance.meltdownTimer) / (float)MeltdownPlugin.config.MeltdownTime * 100f;
+			num = Mathf.Round(num / MeltdownPlugin.config.ShipScanAccuracy) * MeltdownPlugin.config.ShipScanAccuracy;
+			float timeRemaining = (1f - num / 100f) * (float)MeltdownPlugin.config.MeltdownTime;
+			return new ReactorHealthReport
+			{
+				reactorInstability = num,
+				timeRemaining = timeRemaining
+			};
+		}
+
+		[HarmonyPostfix]
+		[HarmonyPatch("Awake")]
+		internal static void RegisterNodes(Terminal __instance)
+		{
+			__instance.terminalNodes.allKeywords = CollectionExtensions.AddRangeToArray<TerminalKeyword>(__instance.terminalNodes.allKeywords, terminalKeywordsToRegister.ToArray());
+			__instance.terminalNodes.terminalNodes.AddRange(terminalNodesToRegister);
+		}
+
+		[HarmonyPostfix]
+		[HarmonyPatch("TextPostProcess")]
+		internal static void ProcessReactorText(TerminalNode node, ref string __result)
+		{
+			if ((Object)(object)node == (Object)(object)MeltdownPlugin.assets.reactorHealthNode)
+			{
+				__result = "\n\n\n" + GetTextForNode();
+			}
+		}
+
+		[HarmonyPostfix]
+		[HarmonyPatch(typeof(StormyWeather), "GetMetalObjectsAfterDelay")]
+		internal static void CancelCoroutine(StormyWeather __instance, ref IEnumerator __result)
+		{
+			((MonoBehaviour)__instance).StopCoroutine(__result);
+		}
+	}
+}
+namespace FacilityMeltdown.MeltdownSequence
+{
+	public static class MeltdownEffects
+	{
+		[CompilerGenerated]
+		private sealed class <AtProgress>d__6 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public float progress;
+
+			public IEnumerator enumerator;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <AtProgress>d__6(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					goto IL_003b;
+				case 1:
+					<>1__state = -1;
+					goto IL_003b;
+				case 2:
+					{
+						<>1__state = -1;
+						return false;
+					}
+					IL_003b:
+					if (MeltdownAPI.MeltdownStarted && MeltdownHandler.Instance.Progress > progress)
+					{
+						<>2__current = null;
+						<>1__state = 1;
+						return true;
+					}
+					<>2__current = enumerator;
+					<>1__state = 2;
+					return true;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <AtProgress>d__7 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public float progress;
+
+			public Action callback;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <AtProgress>d__7(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					break;
+				case 1:
+					<>1__state = -1;
+					break;
+				}
+				if (MeltdownAPI.MeltdownStarted && MeltdownHandler.Instance.Progress > progress)
+				{
+					<>2__current = null;
+					<>1__state = 1;
+					return true;
+				}
+				callback();
+				return false;
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <EmergencyLights>d__8 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public float onTime;
+
+			public List<(Light light, Color originalColour)> originalLightColours;
+
+			public float offTime;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <EmergencyLights>d__8(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_007f: Unknown result type (might be due to invalid IL or missing references)
+				//IL_00a6: Unknown result type (might be due to invalid IL or missing references)
+				//IL_00b0: Expected O, but got Unknown
+				//IL_0122: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0127: Unknown result type (might be due to invalid IL or missing references)
+				//IL_012b: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0152: Unknown result type (might be due to invalid IL or missing references)
+				//IL_015c: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+				{
+					<>1__state = -1;
+					MeltdownPlugin.logger.LogDebug((object)"Switching lights ON");
+					for (int j = 0; j < RoundManager.Instance.allPoweredLightsAnimators.Count; j++)
+					{
+						RoundManager.Instance.allPoweredLightsAnimators[j].SetBool("on", true);
+					}
+					for (int k = 0; k < MeltdownMoonMapper.Instance.outsideEmergencyLights.Count; k++)
+					{
+						MeltdownMoonMapper.Instance.outsideEmergencyLights[k].color = MeltdownMoonMapper.Instance.outsideEmergencyLightColour;
+					}
+					<>2__current = (object)new WaitForSeconds(onTime);
+					<>1__state = 1;
+					return true;
+				}
+				case 1:
+				{
+					<>1__state = -1;
+					MeltdownPlugin.logger.LogDebug((object)"Switching lights OFF");
+					for (int i = 0; i < RoundManager.Instance.allPoweredLightsAnimators.Count; i++)
+					{
+						RoundManager.Instance.allPoweredLightsAnimators[i].SetBool("on", false);
+					}
+					foreach (var (val, color) in originalLightColours)
+					{
+						val.color = color;
+					}
+					<>2__current = (object)new WaitForSeconds(offTime);
+					<>1__state = 2;
+					return true;
+				}
+				case 2:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <RepeatUntilEndOfMeltdown>d__1 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public Func<IEnumerator> enumerator;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <RepeatUntilEndOfMeltdown>d__1(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_0032: Unknown result type (might be due to invalid IL or missing references)
+				//IL_003c: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<>2__current = (object)new WaitForSeconds(Random.Range(0f, 1f));
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					break;
+				case 2:
+					<>1__state = -1;
+					break;
+				}
+				MeltdownPlugin.logger.LogDebug((object)"looping effect");
+				<>2__current = enumerator();
+				<>1__state = 2;
+				return true;
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <WarningAnnouncer>d__10 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public AudioSource source;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <WarningAnnouncer>d__10(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_0073: Unknown result type (might be due to invalid IL or missing references)
+				//IL_007d: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+				{
+					<>1__state = -1;
+					source.volume = MeltdownPlugin.clientConfig.MusicVolume;
+					AudioClip clip = MeltdownPlugin.assets.warnings[Random.Range(0, MeltdownPlugin.assets.warnings.Length)];
+					source.clip = clip;
+					source.Play();
+					<>2__current = (object)new WaitForSeconds(source.clip.length);
+					<>1__state = 1;
+					return true;
+				}
+				case 1:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <WithDelay>d__2 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public float delay;
+
+			public IEnumerator enumerator;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <WithDelay>d__2(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_0029: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0033: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<>2__current = (object)new WaitForSeconds(delay);
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					<>2__current = enumerator;
+					<>1__state = 2;
+					return true;
+				case 2:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <WithDelay>d__3 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public float delay;
+
+			public Action callback;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <WithDelay>d__3(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_001e: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0028: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<>2__current = (object)new WaitForSeconds(delay);
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					callback();
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <WithRandomDelay>d__4 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public Func<IEnumerator> enumerator;
+
+			public float min;
+
+			public float max;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <WithRandomDelay>d__4(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<>2__current = WithDelay(enumerator(), Random.Range(min, max));
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		[CompilerGenerated]
+		private sealed class <WithRandomDelay>d__5 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			public Action callback;
+
+			public float min;
+
+			public float max;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <WithRandomDelay>d__5(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<>2__current = WithDelay(callback, Random.Range(min, max));
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		public static List<(Light light, Color originalColour)> SetupEmergencyLights()
+		{
+			//IL_0019: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0064: Unknown result type (might be due to invalid IL or missing references)
+			for (int i = 0; i < RoundManager.Instance.allPoweredLights.Count; i++)
+			{
+				RoundManager.Instance.allPoweredLights[i].color = MeltdownInteriorMapper.Instance.outsideEmergencyLightColour;
+			}
+			List<(Light, Color)> list = new List<(Light, Color)>();
+			for (int j = 0; j < MeltdownMoonMapper.Instance.outsideEmergencyLights.Count; j++)
+			{
+				list.Add((MeltdownMoonMapper.Instance.outsideEmergencyLights[j], MeltdownMoonMapper.Instance.outsideEmergencyLights[j].color));
+			}
+			return list;
+		}
+
+		[IteratorStateMachine(typeof(<RepeatUntilEndOfMeltdown>d__1))]
+		public static IEnumerator RepeatUntilEndOfMeltdown(Func<IEnumerator> enumerator)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <RepeatUntilEndOfMeltdown>d__1(0)
+			{
+				enumerator = enumerator
+			};
+		}
+
+		[IteratorStateMachine(typeof(<WithDelay>d__2))]
+		public static IEnumerator WithDelay(IEnumerator enumerator, float delay)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <WithDelay>d__2(0)
+			{
+				enumerator = enumerator,
+				delay = delay
+			};
+		}
+
+		[IteratorStateMachine(typeof(<WithDelay>d__3))]
+		public static IEnumerator WithDelay(Action callback, float delay)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <WithDelay>d__3(0)
+			{
+				callback = callback,
+				delay = delay
+			};
+		}
+
+		[IteratorStateMachine(typeof(<WithRandomDelay>d__4))]
+		public static IEnumerator WithRandomDelay(Func<IEnumerator> enumerator, float min, float max)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <WithRandomDelay>d__4(0)
+			{
+				enumerator = enumerator,
+				min = min,
+				max = max
+			};
+		}
+
+		[IteratorStateMachine(typeof(<WithRandomDelay>d__5))]
+		public static IEnumerator WithRandomDelay(Action callback, float min, float max)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <WithRandomDelay>d__5(0)
+			{
+				callback = callback,
+				min = min,
+				max = max
+			};
+		}
+
+		[IteratorStateMachine(typeof(<AtProgress>d__6))]
+		public static IEnumerator AtProgress(IEnumerator enumerator, float progress)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <AtProgress>d__6(0)
+			{
+				enumerator = enumerator,
+				progress = progress
+			};
+		}
+
+		[IteratorStateMachine(typeof(<AtProgress>d__7))]
+		public static IEnumerator AtProgress(Action callback, float progress)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <AtProgress>d__7(0)
+			{
+				callback = callback,
+				progress = progress
+			};
+		}
+
+		[IteratorStateMachine(typeof(<EmergencyLights>d__8))]
+		public static IEnumerator EmergencyLights(float onTime, float offTime, List<(Light light, Color originalColour)> originalLightColours)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <EmergencyLights>d__8(0)
+			{
+				onTime = onTime,
+				offTime = offTime,
+				originalLightColours = originalLightColours
+			};
+		}
+
+		public static void InsideParticleEffects()
+		{
+			//IL_00c4: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00d8: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0020: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0025: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0026: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0027: Unknown result type (might be due to invalid IL or missing references)
+			//IL_002c: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0072: Unknown result type (might be due to invalid IL or missing references)
+			if (MeltdownPlugin.clientConfig.ScreenShake)
+			{
+				RaycastHit val2 = default(RaycastHit);
+				for (int i = 0; i < Random.Range(5, 15); i++)
+				{
+					Vector3 val = GetRandomPositionInsideFacility() + Vector3.up;
+					if (Physics.Raycast(new Ray(val, Vector3.up), ref val2, 20f, 256))
+					{
+						GameObject val3 = MeltdownPlugin.assets.facilityEffects[Random.Range(0, MeltdownPlugin.assets.facilityEffects.Length)];
+						GameObject val4 = Object.Instantiate<GameObject>(val3);
+						val3.transform.position = ((RaycastHit)(ref val2)).point;
+						val4.transform.parent = ((Component)MeltdownHandler.Instance).transform;
+					}
+				}
+			}
+			if (GameNetworkManager.Instance.localPlayerController.isInsideFactory)
+			{
+				Object.Instantiate<GameObject>(StartOfRound.Instance.explosionPrefab, GetRandomPositionNearPlayer(), Quaternion.Euler(-90f, 0f, 0f), RoundManager.Instance.mapPropsContainer.transform);
+			}
+			if (MeltdownPlugin.clientConfig.ScreenShake)
+			{
+				if (MeltdownHandler.Instance.Progress > 0.5f)
+				{
+					HUDManager.Instance.ShakeCamera((ScreenShakeType)1);
+				}
+				else
+				{
+					HUDManager.Instance.ShakeCamera((ScreenShakeType)3);
+				}
+			}
+		}
+
+		[IteratorStateMachine(typeof(<WarningAnnouncer>d__10))]
+		public static IEnumerator WarningAnnouncer(AudioSource source)
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <WarningAnnouncer>d__10(0)
+			{
+				source = source
+			};
+		}
+
+		private static Vector3 PlacePositionInsideFacility(Vector3 position, float radius = 10f)
+		{
+			//IL_0005: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0009: Unknown result type (might be due to invalid IL or missing references)
+			//IL_000f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0010: Unknown result type (might be due to invalid IL or missing references)
+			return RoundManager.Instance.GetRandomNavMeshPositionInRadius(position, radius, default(NavMeshHit));
+		}
+
+		private static Vector3 GetRandomPositionNearPlayer(float radius = 15f)
+		{
+			//IL_000f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0014: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001a: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0029: Unknown result type (might be due to invalid IL or missing references)
+			return PlacePositionInsideFacility(((Component)GameNetworkManager.Instance.localPlayerController).transform.position + Random.insideUnitSphere * radius);
+		}
+
+		private static Vector3 GetRandomPositionInsideFacility()
+		{
+			//IL_0022: Unknown result type (might be due to invalid IL or missing references)
+			//IL_002c: Unknown result type (might be due to invalid IL or missing references)
+			return PlacePositionInsideFacility(RoundManager.Instance.insideAINodes[Random.Range(0, RoundManager.Instance.insideAINodes.Length)].transform.position);
+		}
+	}
+}
+namespace FacilityMeltdown.MeltdownSequence.Behaviours
+{
+	internal class FacilityExplosionHandler : MonoBehaviour
+	{
+		private PlayerControllerB player;
+
+		private float size;
+
+		private float time;
+
+		private LocalVolumetricFog internalFog;
+
+		private void Awake()
+		{
+			player = GameNetworkManager.Instance.localPlayerController;
+			internalFog = ((Component)this).GetComponent<LocalVolumetricFog>();
+			if ((Object)(object)internalFog == (Object)null)
+			{
+				MeltdownPlugin.logger.LogError((object)"Failed to get volumetric fog!");
+			}
+			if (MeltdownPlugin.clientConfig.ScreenShake)
+			{
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)0);
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)1);
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)2);
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)3);
+			}
+			if (!player.isPlayerDead && player.isInsideFactory)
+			{
+				if (player.isInElevator)
+				{
+					MeltdownPlugin.logger.LogWarning((object)"Player is inside ship and facility at the same time!! Did you teleport out? Aborting kill");
+				}
+				else
+				{
+					KillPlayer();
+				}
+			}
+		}
+
+		private void Update()
+		{
+			//IL_0030: Unknown result type (might be due to invalid IL or missing references)
+			//IL_003b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_005e: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0069: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0073: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0078: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0093: Unknown result type (might be due to invalid IL or missing references)
+			//IL_009d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00a3: Unknown result type (might be due to invalid IL or missing references)
+			time += Time.deltaTime * 10f;
+			size = TimeToSize(time);
+			((Component)this).transform.localScale = Vector3.one * size;
+			if ((Object)(object)internalFog != (Object)null)
+			{
+				internalFog.parameters.size = Vector3.one * size * 1.25f;
+			}
+			if (!ShouldIgnorePlayer() && PlayerIsInsideFireball())
+			{
+				player.KillPlayer(Vector3.zero, false, (CauseOfDeath)3, 0, default(Vector3), false);
+			}
+		}
+
+		private void KillPlayer()
+		{
+			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0010: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
+			player.KillPlayer(Vector3.zero, false, (CauseOfDeath)3, 0, default(Vector3), false);
+		}
+
+		private bool PlayerIsInsideFireball()
+		{
+			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0016: Unknown result type (might be due to invalid IL or missing references)
+			return Vector3.Distance(((Component)this).transform.position, ((Component)player).transform.position) < size;
+		}
+
+		private bool ShouldIgnorePlayer()
+		{
+			if (!player.isPlayerDead)
+			{
+				if (player.isInElevator)
+				{
+					return StartOfRound.Instance.shipIsLeaving;
+				}
+				return false;
+			}
+			return true;
+		}
+
+		private float TimeToSize(float time)
+		{
+			return Mathf.Log(time) + 3f + 2f * time;
+		}
+	}
+	public class MeltdownHandler : NetworkBehaviour
+	{
+		[CompilerGenerated]
+		private sealed class <ShipTakeOff>d__26 : IEnumerator<object>, IEnumerator, IDisposable
+		{
+			private int <>1__state;
+
+			private object <>2__current;
+
+			private StartOfRound <shipManager>5__2;
+
+			object IEnumerator<object>.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			object IEnumerator.Current
+			{
+				[DebuggerHidden]
+				get
+				{
+					return <>2__current;
+				}
+			}
+
+			[DebuggerHidden]
+			public <ShipTakeOff>d__26(int <>1__state)
+			{
+				this.<>1__state = <>1__state;
+			}
+
+			[DebuggerHidden]
+			void IDisposable.Dispose()
+			{
+				<shipManager>5__2 = null;
+				<>1__state = -2;
+			}
+
+			private bool MoveNext()
+			{
+				//IL_006b: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0075: Expected O, but got Unknown
+				//IL_008b: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0095: Expected O, but got Unknown
+				//IL_0100: Unknown result type (might be due to invalid IL or missing references)
+				//IL_010a: Expected O, but got Unknown
+				//IL_016e: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0178: Expected O, but got Unknown
+				//IL_014e: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0158: Expected O, but got Unknown
+				switch (<>1__state)
+				{
+				default:
+					return false;
+				case 0:
+					<>1__state = -1;
+					<shipManager>5__2 = StartOfRound.Instance;
+					<shipManager>5__2.shipLeftAutomatically = true;
+					<shipManager>5__2.shipIsLeaving = true;
+					HUDManager.Instance.ReadDialogue(GetDialogue("meltdown.dialogue.shiptakeoff"));
+					<>2__current = (object)new WaitForSeconds(3f);
+					<>1__state = 1;
+					return true;
+				case 1:
+					<>1__state = -1;
+					<>2__current = (object)new WaitForSeconds(3f);
+					<>1__state = 2;
+					return true;
+				case 2:
+				{
+					<>1__state = -1;
+					((Behaviour)HUDManager.Instance.shipLeavingEarlyIcon).enabled = false;
+					StartMatchLever val = Object.FindObjectOfType<StartMatchLever>();
+					val.triggerScript.animationString = "SA_PushLeverBack";
+					val.leverHasBeenPulled = false;
+					val.triggerScript.interactable = false;
+					val.leverAnimatorObject.SetBool("pullLever", false);
+					<shipManager>5__2.ShipLeave();
+					<>2__current = (object)new WaitForSeconds(1.5f);
+					<>1__state = 3;
+					return true;
+				}
+				case 3:
+					<>1__state = -1;
+					<shipManager>5__2.SetSpectateCameraToGameOverMode(true, (PlayerControllerB)null);
+					if (GameNetworkManager.Instance.localPlayerController.isPlayerDead)
+					{
+						GameNetworkManager.Instance.localPlayerController.SetSpectatedPlayerEffects(true);
+					}
+					<>2__current = (object)new WaitForSeconds(1f);
+					<>1__state = 4;
+					return true;
+				case 4:
+					<>1__state = -1;
+					<>2__current = (object)new WaitForSeconds(9.5f);
+					<>1__state = 5;
+					return true;
+				case 5:
+					<>1__state = -1;
+					return false;
+				}
+			}
+
+			bool IEnumerator.MoveNext()
+			{
+				//ILSpy generated this explicit interface implementation from .override directive in MoveNext
+				return this.MoveNext();
+			}
+
+			[DebuggerHidden]
+			void IEnumerator.Reset()
+			{
+				throw new NotSupportedException();
+			}
+		}
+
+		internal float meltdownTimer;
+
+		private bool meltdownStarted;
+
+		internal LungProp causingLungProp;
+
+		private GameObject explosion;
+
+		private GameObject shockwave;
+
+		[SerializeField]
+		private AudioSource meltdownMusic;
+
+		[SerializeField]
+		private AudioSource warningSource;
+
+		public float TimeLeftUntilMeltdown => meltdownTimer;
+
+		public float Progress => 1f - TimeLeftUntilMeltdown / (float)MeltdownPlugin.config.MeltdownTime;
+
+		private static PlayerControllerB Player => GameNetworkManager.Instance.localPlayerController;
+
+		internal static MeltdownHandler Instance { get; private set; }
+
+		private Vector3 effectOrigin => MeltdownMoonMapper.Instance.EffectOrigin;
+
+		[ClientRpc]
+		private void StartMeltdownClientRpc()
+		{
+			//IL_0024: Unknown result type (might be due to invalid IL or missing references)
+			//IL_002e: Invalid comparison between Unknown and I4
+			//IL_008c: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0096: Invalid comparison between Unknown and I4
+			//IL_005f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0068: Unknown result type (might be due to invalid IL or missing references)
+			//IL_006d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_007c: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00c1: Unknown result type (might be due to invalid IL or missing references)
+			NetworkManager networkManager = ((NetworkBehaviour)this).NetworkManager;
+			if (networkManager == null || !networkManager.IsListening)
+			{
+				return;
+			}
+			if ((int)base.__rpc_exec_stage != 1 && (networkManager.IsServer || networkManager.IsHost))
+			{
+				ClientRpcParams val = default(ClientRpcParams);
+				FastBufferWriter val2 = ((NetworkBehaviour)this).__beginSendClientRpc(3631067672u, val, (RpcDelivery)0);
+				((NetworkBehaviour)this).__endSendClientRpc(ref val2, 3631067672u, val, (RpcDelivery)0);
+			}
+			if ((int)base.__rpc_exec_stage != 1 || (!networkManager.IsClient && !networkManager.IsHost))
+			{
+				return;
+			}
+			base.__rpc_exec_stage = (__RpcExecStage)0;
+			if ((Object)(object)Instance != (Object)null)
+			{
+				return;
+			}
+			Instance = this;
+			Stopwatch stopwatch = new Stopwatch();
+			MeltdownPlugin.logger.LogInfo((object)"Beginning Meltdown Sequence! I'd run if I were you!");
+			stopwatch.Start();
+			MeltdownMoonMapper.EnsureMeltdownMoonMapper();
+			MeltdownInteriorMapper.EnsureMeltdownInteriorMapper();
+			if ((Object)(object)MeltdownInteriorMapper.Instance == (Object)null)
+			{
+				MeltdownPlugin.logger.LogError((object)"WHAT. Just ensured that the interior mapper exists and it doesnt?!?");
+			}
+			if ((Object)(object)MeltdownMoonMapper.Instance == (Object)null)
+			{
+				MeltdownPlugin.logger.LogError((object)"WHAT. Just ensured that the moon mapper exists and it doesnt?!?");
+			}
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Ensuring data objects exist: {stopwatch.ElapsedMilliseconds}ms");
+			meltdownTimer = MeltdownPlugin.config.MeltdownTime;
+			stopwatch.Restart();
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Creating audio: {stopwatch.ElapsedMilliseconds}ms");
+			stopwatch.Restart();
+			((MonoBehaviour)this).StartCoroutine(MeltdownEffects.WithDelay(delegate
+			{
+				HUDManager.Instance.ReadDialogue(GetDialogue("meltdown.dialogue.start"));
+			}, 5f));
+			((MonoBehaviour)this).StartCoroutine(MeltdownEffects.WithDelay(MeltdownEffects.RepeatUntilEndOfMeltdown(() => MeltdownEffects.WithRandomDelay(() => MeltdownEffects.WarningAnnouncer(warningSource), 10f, 15f)), 10f));
+			((MonoBehaviour)this).StartCoroutine(MeltdownEffects.RepeatUntilEndOfMeltdown(() => MeltdownEffects.WithRandomDelay((Action)MeltdownEffects.InsideParticleEffects, 10f, 15f)));
+			if (MeltdownPlugin.config.EmergencyLights)
+			{
+				try
+				{
+					List<(Light, Color)> originalLightColours = MeltdownEffects.SetupEmergencyLights();
+					((MonoBehaviour)this).StartCoroutine(MeltdownEffects.RepeatUntilEndOfMeltdown(() => MeltdownEffects.EmergencyLights(2f, 5f, originalLightColours)));
+				}
+				catch (Exception arg)
+				{
+					MeltdownPlugin.logger.LogError((object)$"Failed to set the emergency light colour: {arg}");
+				}
+			}
+			((MonoBehaviour)this).StartCoroutine(MeltdownEffects.RepeatUntilEndOfMeltdown(() => MeltdownEffects.WithRandomDelay(delegate
+			{
+				//IL_003a: Unknown result type (might be due to invalid IL or missing references)
+				if ((Object)(object)shockwave != (Object)null)
+				{
+					Object.Destroy((Object)(object)shockwave);
+				}
+				shockwave = Object.Instantiate<GameObject>(MeltdownPlugin.assets.shockwavePrefab);
+				shockwave.transform.position = effectOrigin;
+			}, 25f, 35f)));
+			((MonoBehaviour)this).StartCoroutine(MeltdownEffects.AtProgress((Action)HUDManager.Instance.RadiationWarningHUD, 0.5f));
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Starting effects: {stopwatch.ElapsedMilliseconds}ms");
+			if (((NetworkBehaviour)GameNetworkManager.Instance.localPlayerController).IsServer)
+			{
+				HandleEnemies();
+			}
+			stopwatch.Restart();
+			if (MeltdownPlugin.clientConfig.ScreenShake)
+			{
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)3);
+				HUDManager.Instance.ShakeCamera((ScreenShakeType)2);
+			}
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Getting effect origin: {stopwatch.ElapsedMilliseconds}ms");
+			stopwatch.Restart();
+			MeltdownAPI.OnMeltdownStart();
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"MeltdownAPI.OnMeltdownStart(): {stopwatch.ElapsedMilliseconds}ms");
+			meltdownStarted = true;
+		}
+
+		private void HandleEnemies()
+		{
+			//IL_01fb: Unknown result type (might be due to invalid IL or missing references)
+			Stopwatch stopwatch = Stopwatch.StartNew();
+			List<string> disallowed = MeltdownPlugin.config.GetDisallowedEnemies();
+			List<SpawnableEnemyWithRarity> list = RoundManager.Instance.currentLevel.Enemies.Where(delegate(SpawnableEnemyWithRarity enemy)
+			{
+				DawnEnemyInfo dawnInfo = EnemyTypeExtensions.GetDawnInfo(enemy.enemyType);
+				if (dawnInfo == null)
+				{
+					MeltdownPlugin.logger.LogWarning((object)(((Object)enemy.enemyType).name + " doesn't have a DawnEnemyInfo! They won't be able to spawn in the meltdown sequence!"));
+				}
+				return !EnemyCannotBeSpawned(enemy.enemyType) && !disallowed.Contains(enemy.enemyType.enemyName) && enemy.rarity > 0 && !((DawnBaseInfo<DawnEnemyInfo>)(object)dawnInfo).HasTag(MeltdownTags.NotSpawnable) && !((DawnBaseInfo<DawnEnemyInfo>)(object)dawnInfo).HasTag(Tags.Unimplemented);
+			}).ToList();
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Filtering enemies: {stopwatch.ElapsedMilliseconds}ms");
+			stopwatch.Restart();
+			List<EnemyVent> list2 = RoundManager.Instance.allEnemyVents.Where((EnemyVent vent) => !vent.occupied).ToList();
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Filtering vents: {stopwatch.ElapsedMilliseconds}ms");
+			stopwatch.Restart();
+			Random random = new Random(StartOfRound.Instance.randomMapSeed + 1923847);
+			for (int i = 0; i < Mathf.Min(MeltdownPlugin.config.MonsterSpawnAmount, list2.Count); i++)
+			{
+				EnemyVent val = list2[random.Next(0, list2.Count)];
+				list2.Remove(val);
+				SpawnableEnemyWithRarity val2 = list[random.Next(0, list.Count)];
+				RoundManager instance = RoundManager.Instance;
+				instance.currentEnemyPower += val2.enemyType.PowerLevel;
+				MeltdownPlugin.logger.LogInfo((object)("Spawning a " + val2.enemyType.enemyName + " during the meltdown sequence"));
+				val.SpawnEnemy(val2);
+			}
+			stopwatch.Stop();
+			MeltdownPlugin.logger.LogDebug((object)$"Spawning enemies: {stopwatch.ElapsedMilliseconds}ms");
+			if (!MeltdownPlugin.config.ScareBabyManeaters || !Object.op_Implicit((Object)(object)causingLungProp))
+			{
+				return;
+			}
+			CaveDwellerAI[] array = Object.FindObjectsOfType<CaveDwellerAI>();
+			foreach (CaveDwellerAI val3 in array)
+			{
+				if (((EnemyAI)val3).currentBehaviourStateIndex == 0)
+				{
+					val3.ScareBaby(((Component)causingLungProp).transform.position);
+				}
+			}
+		}
+
+		public override void OnNetworkSpawn()
+		{
+			//IL_001b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0020: Unknown result type (might be due to invalid IL or missing references)
+			MeltdownMoonMapper.EnsureMeltdownMoonMapper();
+			MeltdownInteriorMapper.EnsureMeltdownInteriorMapper();
+			if (MeltdownPlugin.loadedFully && ((NetworkBehaviour)this).IsServer)
+			{
+				if (effectOrigin == Vector3.zero)
+				{
+					MeltdownPlugin.logger.LogError((object)"effectOrigin == Vector3.zero, meltdown will not start.");
+				}
+				else
+				{
+					StartMeltdownClientRpc();
+				}
+			}
+		}
+
+		internal bool EnemyCannotBeSpawned(EnemyType type)
+		{
+			if (!type.spawningDisabled)
+			{
+				return type.numberSpawned >= type.MaxCount;
+			}
+			return true;
+		}
+
+		internal static DialogueSegment[] GetDialogue(string translation)
+		{
+			//IL_0019: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001e: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0059: Unknown result type (might be due to invalid IL or missing references)
+			//IL_006a: Expected O, but got Unknown
+			JArray translationSet = LangParser.GetTranslationSet(translation);
+			DialogueSegment[] array = (DialogueSegment[])(object)new DialogueSegment[((JContainer)translationSet).Count];
+			for (int i = 0; i < ((JContainer)translationSet).Count; i++)
+			{
+				array[i] = new DialogueSegment
+				{
+					bodyText = ((string)translationSet[i]).Replace("<meltdown_time>", Math.Round((float)MeltdownPlugin.config.MeltdownTime / 60f).ToString()),
+					speakerText = "meltdown.dialogue.speaker".Translate()
+				};
+			}
+			return array;
+		}
+
+		private void OnDisable()
+		{
+			if (!((Object)(object)Instance != (Object)(object)this))
+			{
+				MeltdownPlugin.logger.LogInfo((object)"Cleaning up MeltdownHandler.");
+				Instance = null;
+				if ((Object)(object)explosion != (Object)null)
+				{
+					Object.Destroy((Object)(object)explosion);
+				}
+				if ((Object)(object)shockwave != (Object)null)
+				{
+					Object.Destroy((Object)(object)shockwave);
+				}
+				if (!meltdownStarted)
+				{
+					MeltdownPlugin.logger.LogError((object)"MeltdownHandler was disabled without starting a meltdown, a client most likely failed the MeltdownReadyCheck. If you are going to report this make sure to provide ALL client logs.");
+				}
+			}
+		}
+
+		private void Update()
+		{
+			//IL_00df: Unknown result type (might be due to invalid IL or missing references)
+			if (!meltdownStarted || HasExplosionOccured())
+			{
+				return;
+			}
+			StartOfRound instance = StartOfRound.Instance;
+			meltdownMusic.volume = (float)MeltdownPlugin.clientConfig.MusicVolume / 100f;
+			if (!Player.isInsideFactory && !MeltdownPlugin.clientConfig.MusicPlaysOutside)
+			{
+				meltdownMusic.volume = 0f;
+			}
+			meltdownTimer -= Time.deltaTime;
+			if (meltdownTimer <= 3f && !instance.shipIsLeaving)
+			{
+				((MonoBehaviour)this).StartCoroutine(ShipTakeOff());
+			}
+			if (meltdownTimer <= 0f)
+			{
+				meltdownMusic.Stop();
+				GameObject val = MeltdownMoonMapper.Instance.explosionPrefab;
+				if ((Object)(object)val == (Object)null)
+				{
+					val = MeltdownPlugin.assets.facilityExplosionPrefab;
+				}
+				explosion = Object.Instantiate<GameObject>(val);
+				explosion.transform.position = effectOrigin;
+				FacilityExplosionHandler facilityExplosionHandler = default(FacilityExplosionHandler);
+				if (!explosion.TryGetComponent<FacilityExplosionHandler>(ref facilityExplosionHandler))
+				{
+					explosion.AddComponent<FacilityExplosionHandler>();
+				}
+			}
+		}
+
+		[IteratorStateMachine(typeof(<ShipTakeOff>d__26))]
+		private IEnumerator ShipTakeOff()
+		{
+			//yield-return decompiler failed: Unexpected instruction in Iterator.Dispose()
+			return new <ShipTakeOff>d__26(0);
+		}
+
+		public bool HasExplosionOccured()
+		{
+			return (Object)(object)explosion != (Object)null;
+		}
+
+		protected override void __initializeVariables()
+		{
+			((NetworkBehaviour)this).__initializeVariables();
+		}
+
+		protected override void __initializeRpcs()
+		{
+			//IL_000d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001c: Expected O, but got Unknown
+			((NetworkBehaviour)this).__registerRpc(3631067672u, new RpcReceiveHandler(__rpc_handler_3631067672), "StartMeltdownClientRpc");
+			((NetworkBehaviour)this).__initializeRpcs();
+		}
+
+		private static void __rpc_handler_3631067672(NetworkBehaviour target, FastBufferReader reader, __RpcParams rpcParams)
+		{
+			//IL_0029: Unknown result type (might be due to invalid IL or missing references)
+			//IL_003f: Unknown result type (might be due to invalid IL or missing references)
+			NetworkManager networkManager = target.NetworkManager;
+			if (networkManager != null && networkManager.IsListening)
+			{
+				target.__rpc_exec_stage = (__RpcExecStage)1;
+				((MeltdownHandler)(object)target).StartMeltdownClientRpc();
+				target.__rpc_exec_stage = (__RpcExecStage)0;
+			}
+		}
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		protected internal override string __getTypeName()
+		{
+			return "MeltdownHandler";
+		}
+	}
+	public class Shockwave : MonoBehaviour
+	{
+		private bool localPlayerCameraShake;
+
+		private float size;
+
+		private AudioSource sound;
+
+		private Renderer renderer;
+
+		private void Awake()
+		{
+			sound = ((Component)this).gameObject.AddComponent<AudioSource>();
+			sound.clip = MeltdownPlugin.assets.shockwave;
+			sound.spatialBlend = 0f;
+			sound.loop = false;
+			renderer = ((Component)this).GetComponent<Renderer>();
+		}
+
+		private void Update()
+		{
+			//IL_0029: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0034: Unknown result type (might be due to invalid IL or missing references)
+			PlayerControllerB localPlayerController = GameNetworkManager.Instance.localPlayerController;
+			size += Time.deltaTime * 50f;
+			((Component)this).transform.localScale = Vector3.one * size;
+			if (localPlayerController.isInsideFactory)
+			{
+				renderer.enabled = false;
+				return;
+			}
+			renderer.enabled = true;
+			if (PlayerIsInsideShockwave() && !localPlayerCameraShake && MeltdownPlugin.clientConfig.ScreenShake)
+			{
+				ScreenShake();
+				localPlayerCameraShake = true;
+				sound.Play();
+			}
+		}
+
+		private void ScreenShake()
+		{
+			HUDManager.Instance.ShakeCamera((ScreenShakeType)1);
+		}
+
+		internal bool PlayerIsInsideShockwave()
+		{
+			//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001a: Unknown result type (might be due to invalid IL or missing references)
+			return Vector3.Distance(((Component)this).transform.position, ((Component)GameNetworkManager.Instance.localPlayerController).transform.position) <= size;
+		}
+	}
+}
+namespace FacilityMeltdown.Lang
+{
+	internal static class LangParser
+	{
+		internal static Dictionary<string, string> languages { get; private set; }
+
+		internal static Dictionary<string, object> loadedLanguage { get; private set; }
+
+		internal static Dictionary<string, object> defaultLanguage { get; private set; }
+
+		internal static void Init()
+		{
+			using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FacilityMeltdown.Lang.defs.json");
+			using StreamReader streamReader = new StreamReader(stream);
+			string text = streamReader.ReadToEnd();
+			languages = JsonConvert.DeserializeObject<Dictionary<string, string>>(text);
+		}
+
+		internal static Dictionary<string, object> LoadLanguage(string id)
+		{
+			using Stream stream = File.Open(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "lang", id + ".json"), FileMode.Open);
+			using StreamReader streamReader = new StreamReader(stream);
+			string text = streamReader.ReadToEnd();
+			return JsonConvert.DeserializeObject<Dictionary<string, object>>(text);
+		}
+
+		internal static void SetLanguage(string id)
+		{
+			MeltdownPlugin.logger.LogInfo((object)("Loading language: " + languages[id] + " (" + id + ")"));
+			loadedLanguage = LoadLanguage(id);
+			MeltdownPlugin.logger.LogInfo((object)("Loaded " + languages[id]));
+		}
+
+		internal static string GetTranslation(string translation)
+		{
+			if (loadedLanguage.TryGetValue(translation, out var value))
+			{
+				return (string)value;
+			}
+			if (defaultLanguage.TryGetValue(translation, out value))
+			{
+				MeltdownPlugin.logger.LogError((object)("Falling back to english. for translation: " + translation));
+				return (string)value;
+			}
+			if (translation == "lang.missing")
+			{
+				MeltdownPlugin.logger.LogError((object)"LANG.MISSING IS MISSING!!!!!  THIS IS BAD!! VERY BAD!!");
+				return "lang.missing; <translation_id>";
+			}
+			return GetTranslation("lang.missing").Replace("<translation_id>", translation);
+		}
+
+		internal static JArray GetTranslationSet(string translation)
+		{
+			//IL_0051: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0056: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0077: Expected O, but got Unknown
+			if (loadedLanguage.TryGetValue(translation, out var value))
+			{
+				MeltdownPlugin.logger.LogInfo((object)value.GetType());
+				return (JArray)((value is JArray) ? value : null);
+			}
+			if (defaultLanguage.TryGetValue(translation, out value))
+			{
+				MeltdownPlugin.logger.LogError((object)("Falling back to english. for translation (dialogue): " + translation));
+				return (JArray)((value is JArray) ? value : null);
+			}
+			JArray val = new JArray();
+			val.Add(JToken.op_Implicit(GetTranslation("lang.missing").Replace("<translation_id>", translation)));
+			return val;
+		}
+	}
+}
+namespace FacilityMeltdown.Integrations
+{
+	internal static class DiomedesIntergration
+	{
+		private class BC_TriggerMeltdown : BingoChallenge
+		{
+			public NamespacedKey<DawnMoonInfo> MoonKey;
+
+			private string _moonName;
+
+			public BC_TriggerMeltdown(string moonName)
+			{
+				_moonName = moonName;
+				MeltdownAPI.OnMeltdownStart = (Action)Delegate.Combine(MeltdownAPI.OnMeltdownStart, new Action(OnMeltdownStart));
+			}
+
+			private void OnMeltdownStart()
+			{
+				if (MoonKey == null || ((DawnBaseInfo<DawnMoonInfo>)(object)SelectableLevelExtensions.GetDawnInfo(StartOfRound.Instance.currentLevel)).Key == MoonKey)
+				{
+					((BingoChallenge)this).Complete();
+				}
+			}
+
+			protected override void Cleanup()
+			{
+				((BingoChallenge)this).Cleanup();
+				MeltdownAPI.OnMeltdownStart = (Action)Delegate.Remove(MeltdownAPI.OnMeltdownStart, new Action(OnMeltdownStart));
+			}
+
+			public override BingoUIState CreateUI()
+			{
+				//IL_0000: Unknown result type (might be due to invalid IL or missing references)
+				//IL_0005: Unknown result type (might be due to invalid IL or missing references)
+				//IL_001c: Expected O, but got Unknown
+				return new BingoUIState
+				{
+					Name = "Trigger Meltdown on " + _moonName
+				};
+			}
+		}
+
+		public static readonly NamespacedKey<ChallengeInfo> TriggerMeltdown = NamespacedKey<ChallengeInfo>.From("facility_meltdown", "trigger_meltdown");
+
+		public static readonly NamespacedKey<ChallengeGroup> MeltdownGroup = NamespacedKey<ChallengeGroup>.From("facility_meltdown", "meltdown_bingo");
+
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		internal static void Initialize()
+		{
+			Enabled = true;
+			DiomedesClientAPI.DefineBingoChallengeGroup(MeltdownGroup, (Action<ChallengeGroupBuilder>)delegate(ChallengeGroupBuilder builder)
+			{
+				builder.WithMaxAmount(1);
+			});
+			List<(NamespacedKey<DawnMoonInfo>, string)> list = new List<(NamespacedKey<DawnMoonInfo>, string)>(4)
+			{
+				(null, "any moon"),
+				(MoonKeys.Embrion, "Embrion"),
+				(MoonKeys.Artifice, "Artifice"),
+				(MoonKeys.Titan, "Titan")
+			};
+			foreach (var item in list)
+			{
+				var (moonKey, moonName) = item;
+				DiomedesClientAPI.DefineBingoChallenge(TriggerMeltdown, (Func<BingoChallenge>)(() => (BingoChallenge)(object)new BC_TriggerMeltdown(moonName)
+				{
+					MoonKey = moonKey
+				}), (Action<ChallengeInfoBuilder>)delegate(ChallengeInfoBuilder builder)
+				{
+					builder.AddToGroup(MeltdownGroup).AddToGroup(DiomedesKeys.ApparatusGroup);
+				});
+			}
+		}
+	}
+	internal class LethalConfigIntergration
+	{
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Initialize()
+		{
+			Enabled = true;
+			LethalConfigManager.SetModDescription("Maybe taking the appartus isn't such a great idea...");
+			HandleConfig(MeltdownPlugin.config);
+			HandleConfig(MeltdownPlugin.clientConfig);
+		}
+
+		private static void HandleConfig<T>(LoafConfig<T> config) where T : LoafConfig<T>
+		{
+			//IL_00d2: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00d7: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00e5: Expected O, but got Unknown
+			//IL_00e5: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00f3: Expected O, but got Unknown
+			//IL_00f3: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0100: Expected O, but got Unknown
+			//IL_00fb: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0105: Expected O, but got Unknown
+			//IL_0204: Unknown result type (might be due to invalid IL or missing references)
+			//IL_020e: Expected O, but got Unknown
+			//IL_016d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0172: Unknown result type (might be due to invalid IL or missing references)
+			//IL_017f: Expected O, but got Unknown
+			//IL_017f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_018c: Expected O, but got Unknown
+			//IL_018c: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0199: Expected O, but got Unknown
+			//IL_0194: Unknown result type (might be due to invalid IL or missing references)
+			//IL_019e: Expected O, but got Unknown
+			//IL_0257: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0261: Expected O, but got Unknown
+			bool flag = true;
+			if (config.GetType().GetCustomAttribute<RequiresRestartAttribute>() != null)
+			{
+				flag = config.GetType().GetCustomAttribute<RequiresRestartAttribute>().RequiresRestart;
+			}
+			foreach (var configEntry in config.configEntries)
+			{
+				PropertyInfo property = configEntry.Item1;
+				object uncastedEntry = configEntry.Item2;
+				bool flag2 = flag;
+				RequiresRestartAttribute customAttribute = property.GetCustomAttribute<RequiresRestartAttribute>();
+				if (customAttribute != null)
+				{
+					flag2 = customAttribute.RequiresRestart;
+				}
+				ConfigRangeAttribute customAttribute2 = property.GetCustomAttribute<ConfigRangeAttribute>();
+				if (property.PropertyType == typeof(int))
+				{
+					if (customAttribute2 == null)
+					{
+						throw new NotImplementedException(property.Name + ": config entry of type: int, must have a range attribute, because i was too lazy lmao");
+					}
+					ConfigEntry<int> obj2 = (ConfigEntry<int>)uncastedEntry;
+					IntSliderOptions val = new IntSliderOptions();
+					((BaseRangeOptions<int>)val).Min = (int)customAttribute2.Min;
+					((BaseRangeOptions<int>)val).Max = (int)customAttribute2.Max;
+					((BaseOptions)val).RequiresRestart = flag2;
+					LethalConfigManager.AddConfigItem((BaseConfigItem)new IntSliderConfigItem(obj2, val));
+					if (!flag2)
+					{
+						((ConfigEntry<int>)uncastedEntry).SettingChanged += delegate
+						{
+							property.SetValue(config, ((ConfigEntry<int>)uncastedEntry).Value);
+						};
+					}
+				}
+				if (property.PropertyType == typeof(float))
+				{
+					if (customAttribute2 == null)
+					{
+						throw new NotImplementedException(property.Name + ": config entry of type: float, must have a range attribute, because i was too lazy lmao");
+					}
+					ConfigEntry<float> obj3 = (ConfigEntry<float>)uncastedEntry;
+					FloatSliderOptions val2 = new FloatSliderOptions();
+					((BaseRangeOptions<float>)val2).Min = customAttribute2.Min;
+					((BaseRangeOptions<float>)val2).Max = customAttribute2.Max;
+					((BaseOptions)val2).RequiresRestart = flag2;
+					LethalConfigManager.AddConfigItem((BaseConfigItem)new FloatSliderConfigItem(obj3, val2));
+					if (!flag2)
+					{
+						((ConfigEntry<float>)uncastedEntry).SettingChanged += delegate
+						{
+							property.SetValue(config, ((ConfigEntry<float>)uncastedEntry).Value);
+						};
+					}
+				}
+				if (property.PropertyType == typeof(bool))
+				{
+					LethalConfigManager.AddConfigItem((BaseConfigItem)new BoolCheckBoxConfigItem((ConfigEntry<bool>)uncastedEntry, flag2));
+					if (!flag2)
+					{
+						((ConfigEntry<bool>)uncastedEntry).SettingChanged += delegate
+						{
+							property.SetValue(config, ((ConfigEntry<bool>)uncastedEntry).Value);
+						};
+					}
+				}
+				if (!(property.PropertyType == typeof(string)))
+				{
+					continue;
+				}
+				LethalConfigManager.AddConfigItem((BaseConfigItem)new TextInputFieldConfigItem((ConfigEntry<string>)uncastedEntry, flag2));
+				if (!flag2)
+				{
+					((ConfigEntry<string>)uncastedEntry).SettingChanged += delegate
+					{
+						property.SetValue(config, ((ConfigEntry<string>)uncastedEntry).Value);
+					};
+				}
+			}
+		}
+	}
+	internal class LethalSettingsIntegration
+	{
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Initialize()
+		{
+			//IL_0011: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0017: Expected O, but got Unknown
+			//IL_0066: Unknown result type (might be due to invalid IL or missing references)
+			//IL_006c: Expected O, but got Unknown
+			Enabled = true;
+			VerticalComponent val = BuildConfig(MeltdownPlugin.clientConfig);
+			ModSettingsConfig val2 = new ModSettingsConfig();
+			val2.Name = "FacilityMeltdown";
+			val2.Id = "me.loaforc.facilitymeltdown";
+			val2.Version = "2.7.5";
+			val2.Description = "Maybe taking the appartus isn't such a great idea...";
+			val2.MenuComponents = (MenuComponent[])(object)new MenuComponent[2]
+			{
+				(MenuComponent)BuildConfig(MeltdownPlugin.config),
+				(MenuComponent)val
+			};
+			ModMenu.RegisterMod(val2);
+			val2 = new ModSettingsConfig();
+			val2.Name = "FacilityMeltdown";
+			val2.Id = "me.loaforc.facilitymeltdown";
+			val2.Version = "2.7.5";
+			val2.Description = "Maybe taking the appartus isn't such a great idea... (GameSettings are hidden in game)";
+			val2.MenuComponents = (MenuComponent[])(object)new MenuComponent[1] { (MenuComponent)val };
+			ModMenu.RegisterMod(val2, false, true);
+		}
+
+		private static VerticalComponent BuildConfig<T>(LoafConfig<T> config) where T : LoafConfig<T>
+		{
+			//IL_00e0: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00e5: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00f1: Expected O, but got Unknown
+			//IL_0101: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0106: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0112: Expected O, but got Unknown
+			//IL_013e: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0143: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0167: Unknown result type (might be due to invalid IL or missing references)
+			//IL_016e: Unknown result type (might be due to invalid IL or missing references)
+			//IL_017b: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0188: Unknown result type (might be due to invalid IL or missing references)
+			//IL_019a: Unknown result type (might be due to invalid IL or missing references)
+			//IL_01b2: Expected O, but got Unknown
+			//IL_01d0: Unknown result type (might be due to invalid IL or missing references)
+			//IL_01d5: Unknown result type (might be due to invalid IL or missing references)
+			//IL_01f8: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0205: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0212: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0224: Unknown result type (might be due to invalid IL or missing references)
+			//IL_023c: Expected O, but got Unknown
+			//IL_025a: Unknown result type (might be due to invalid IL or missing references)
+			//IL_025f: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0271: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0294: Unknown result type (might be due to invalid IL or missing references)
+			//IL_02ac: Expected O, but got Unknown
+			//IL_02ca: Unknown result type (might be due to invalid IL or missing references)
+			//IL_02cf: Unknown result type (might be due to invalid IL or missing references)
+			//IL_02e1: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0304: Unknown result type (might be due to invalid IL or missing references)
+			//IL_031c: Expected O, but got Unknown
+			bool flag = true;
+			if (config.GetType().GetCustomAttribute<RequiresRestartAttribute>() != null)
+			{
+				flag = config.GetType().GetCustomAttribute<RequiresRestartAttribute>().RequiresRestart;
+			}
+			List<MenuComponent> list = new List<MenuComponent>();
+			string text = "Misc";
+			foreach (var configEntry in config.configEntries)
+			{
+				PropertyInfo property = configEntry.Item1;
+				object uncastedEntry = configEntry.Item2;
+				bool requiresRestart = flag;
+				RequiresRestartAttribute customAttribute = property.GetCustomAttribute<RequiresRestartAttribute>();
+				if (customAttribute != null)
+				{
+					requiresRestart = customAttribute.RequiresRestart;
+				}
+				ConfigGroupAttribute configGroupAttribute = (ConfigGroupAttribute)property.GetCustomAttribute(typeof(ConfigGroupAttribute));
+				if (configGroupAttribute != null)
+				{
+					text = configGroupAttribute.Group;
+					list.Add((MenuComponent)new LabelComponent
+					{
+						Text = text
+					});
+				}
+				else if (text == "Misc")
+				{
+					list.Add((MenuComponent)new LabelComponent
+					{
+						Text = text
+					});
+				}
+				ConfigRangeAttribute customAttribute2 = property.GetCustomAttribute<ConfigRangeAttribute>();
+				if (property.PropertyType == typeof(int))
+				{
+					list.Add((MenuComponent)new SliderComponent
+					{
+						Value = (int)property.GetValue(config),
+						WholeNumbers = true,
+						MinValue = customAttribute2.Min,
+						MaxValue = customAttribute2.Max,
+						Text = property.Name,
+						OnValueChanged = delegate(SliderComponent self, float value)
+						{
+							((ConfigEntry<int>)uncastedEntry).Value = (int)value;
+							if (!requiresRestart)
+							{
+								property.SetValue(config, value);
+							}
+						}
+					});
+				}
+				if (property.PropertyType == typeof(float))
+				{
+					list.Add((MenuComponent)new SliderComponent
+					{
+						Value = (float)property.GetValue(config),
+						MinValue = customAttribute2.Min,
+						MaxValue = customAttribute2.Max,
+						Text = property.Name,
+						OnValueChanged = delegate(SliderComponent self, float value)
+						{
+							((ConfigEntry<float>)uncastedEntry).Value = value;
+							if (!requiresRestart)
+							{
+								property.SetValue(config, value);
+							}
+						}
+					});
+				}
+				if (property.PropertyType == typeof(bool))
+				{
+					list.Add((MenuComponent)new ToggleComponent
+					{
+						Text = property.Name,
+						Value = (bool)property.GetValue(config),
+						OnValueChanged = delegate(ToggleComponent self, bool value)
+						{
+							((ConfigEntry<bool>)uncastedEntry).Value = value;
+							if (!requiresRestart)
+							{
+								property.SetValue(config, value);
+							}
+						}
+					});
+				}
+				if (!(property.PropertyType == typeof(string)))
+				{
+					continue;
+				}
+				list.Add((MenuComponent)new InputComponent
+				{
+					Placeholder = property.Name,
+					Value = (string)property.GetValue(config),
+					OnValueChanged = delegate(InputComponent self, string value)
+					{
+						((ConfigEntry<string>)uncastedEntry).Value = value;
+						if (!requiresRestart)
+						{
+							property.SetValue(config, value);
+						}
+					}
+				});
+			}
+			return null;
+		}
+	}
+	internal class LobbyCompatibilityIntegration
+	{
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Initialize()
+		{
+			Enabled = true;
+			PluginHelper.RegisterPlugin("me.loaforc.facilitymeltdown", Version.Parse("2.7.5"), (CompatibilityLevel)2, (VersionStrictness)3);
+		}
+	}
+	internal class WeatherRegistryIntegration
+	{
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Initialize()
+		{
+			Enabled = true;
+			MeltdownPlugin.logger.LogDebug((object)"WeatherRegistryIntergration");
+		}
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		internal static float GetWeatherMultiplier()
+		{
+			if (!Enabled || !MeltdownPlugin.config.WeatherRegistryIntegration)
+			{
+				return 1f;
+			}
+			MeltdownPlugin.logger.LogDebug((object)"wah");
+			return WeatherManager.GetCurrentWeather(RoundManager.Instance.currentLevel).ScrapValueMultiplier;
+		}
+	}
+}
+namespace FacilityMeltdown.Integrations.SoundAPI
+{
+	internal static class SoundAPIIntegration
+	{
+		public static bool Enabled { get; private set; }
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Initialize()
+		{
+			Enabled = true;
+			try
+			{
+				Register();
+			}
+			catch (Exception)
+			{
+				MeltdownPlugin.logger.LogWarning((object)"Failed to register SoundAPI conditions, probably v1 and not v2.");
+			}
+		}
+
+		[MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
+		private static void Register()
+		{
+			SoundAPI.RegisterAll(Assembly.GetExecutingAssembly());
+		}
+	}
+	[SoundAPICondition("FacilityMeltdown:in_meltdown", false, null)]
+	public class InMeltdownCondition : Condition
+	{
+		public bool? Value { get; private set; }
+
+		public override bool Evaluate(IContext context)
+		{
+			return MeltdownAPI.MeltdownStarted == Value.GetValueOrDefault(true);
+		}
+	}
+	[SoundAPICondition("FacilityMeltdown:time_left", false, null)]
+	public class MeltdownTimeLeftCondition : Condition
+	{
+		public string Value { get; private set; }
+
+		public override bool Evaluate(IContext context)
+		{
+			if (!Object.op_Implicit((Object)(object)MeltdownHandler.Instance))
+			{
+				return false;
+			}
+			return ((Condition)this).EvaluateRangeOperator(MeltdownHandler.Instance.TimeLeftUntilMeltdown, Value);
+		}
+
+		public override List<ValidationResult> Validate()
+		{
+			ValidationResult item = default(ValidationResult);
+			if (((Condition)this).ValidateRangeOperator(Value, ref item))
+			{
+				return new List<ValidationResult>(1) { item };
+			}
+			return new List<ValidationResult>();
+		}
+	}
+}
+namespace FacilityMeltdown.Equipment
+{
+	public class GeigerCounterItem : GrabbableObject
+	{
+		[Space(15f)]
+		[Header("Audio")]
+		public AudioSource generalAudioSource;
+
+		public AudioSource lowRadiation;
+
+		public AudioSource mediumRadiation;
+
+		public AudioSource highRadiation;
+
+		public AudioClip toggle;
+
+		public AudioClip outOfBattery;
+
+		public GameObject needle;
+
+		public float maxRotation = 25f;
+
+		public float maxDetection = 50f;
+
+		public override void ItemActivate(bool used, bool buttonDown = true)
+		{
+			((GrabbableObject)this).ItemActivate(used, buttonDown);
+			MeltdownPlugin.logger.LogInfo((object)"ACTIVATED GEIGER COUNTER");
+			SwitchPoweredState(used);
+			generalAudioSource.clip = toggle;
+			generalAudioSource.Play();
+		}
+
+		public override void UseUpBatteries()
+		{
+			((GrabbableObject)this).UseUpBatteries();
+			SwitchPoweredState(on: false);
+			generalAudioSource.clip = outOfBattery;
+			generalAudioSource.Play();
+		}
+
+		public void SwitchPoweredState(bool on)
+		{
+			MeltdownPlugin.logger.LogInfo((object)$"me when the on value is {on}. :rofl::rofl::rofl:");
+			if (base.isBeingUsed)
+			{
+				lowRadiation.Play();
+				mediumRadiation.Play();
+				highRadiation.Play();
+			}
+			else
+			{
+				lowRadiation.Stop();
+				mediumRadiation.Stop();
+				highRadiation.Stop();
+			}
+		}
+
+		public override void Update()
+		{
+			//IL_0017: Unknown result type (might be due to invalid IL or missing references)
+			//IL_00d8: Unknown result type (might be due to invalid IL or missing references)
+			((GrabbableObject)this).Update();
+			if (base.isBeingUsed)
+			{
+				float num = RadiationSource.CollectRadiationFromPoint(((Component)this).transform.position);
+				lowRadiation.volume = 0f;
+				mediumRadiation.volume = 0f;
+				highRadiation.volume = 0f;
+				if (num > maxDetection)
+				{
+					highRadiation.volume = 1f;
+				}
+				else if (num > maxDetection / 2f)
+				{
+					mediumRadiation.volume = 1f;
+				}
+				else
+				{
+					lowRadiation.volume = 1f;
+				}
+				float num2 = Mathf.Clamp01(num / maxDetection) * (maxRotation * 2f);
+				num2 -= maxRotation;
+				needle.transform.localEulerAngles = new Vector3(-90f, num2, 0f);
+			}
+		}
+
+		protected override void __initializeVariables()
+		{
+			((GrabbableObject)this).__initializeVariables();
+		}
+
+		protected override void __initializeRpcs()
+		{
+			((GrabbableObject)this).__initializeRpcs();
+		}
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		protected internal override string __getTypeName()
+		{
+			return "GeigerCounterItem";
+		}
+	}
+}
+namespace FacilityMeltdown.Config
+{
+	[RequiresRestart(false)]
+	internal class MeltdownClientConfig : LoafConfig<MeltdownClientConfig>
+	{
+		[ConfigGroup("Audio")]
+		[ConfigDesc("What volume the music plays at. Also controls the volume of the random voicelines that play")]
+		[ConfigRange(0f, 100f)]
+		public int MusicVolume { get; private set; } = 100;
+
+
+		[ConfigDesc("Does the music play outside the facility?")]
+		public bool MusicPlaysOutside { get; private set; } = true;
+
+
+		[ConfigGroup("Visuals")]
+		[ConfigDesc("Whether or not to shake the screen during the meltdown sequence. Doesn't control other places of screen shake in the game.")]
+		public bool ScreenShake { get; private set; } = true;
+
+
+		[ConfigDesc("Should meltdown sequence contain particle effects? Doesn't include particle effects on the fireball.")]
+		public bool ParticleEffects { get; private set; } = true;
+
+
+		[ConfigIgnore]
+		[RequiresRestart(true)]
+		public string Language { get; private set; } = "en";
+
+
+		internal MeltdownClientConfig(ConfigFile file)
+			: base(file)
+		{
+			//IL_006d: Unknown result type (might be due to invalid IL or missing references)
+			//IL_0077: Expected O, but got Unknown
+			BindProperty<string>(typeof(MeltdownClientConfig).GetProperty("Language"), "Language", new ConfigDescription("What language should FacilityMeltdown use? NOTE: This only affects facility meltdown and won't change the rest of the games langauge\nSome Languages may also need FontPatcher(https://thunderstore.io/c/lethal-company/p/LeKAKiD/FontPatcher/)\nLanguages Available: " + string.Join(", ", LangParser.languages.Keys), (AcceptableValueBase)null, Array.Empty<object>()));
+		}
+	}
+	internal class MeltdownConfig : LoafSyncedConfig<MeltdownConfig>
+	{
+		[ConfigGroup("GameBalance")]
+		[ConfigDesc("Whether or not FacilityMeltdown should override appartus value. Only disable for compatibility reasons.")]
+		public bool OverrideApparatusValue { get; private set; } = true;
+
+
+		[ConfigDesc("When overriding the apparatus value what should it's base value be?")]
+		[ConfigRange(80f, 500f)]
+		public int ApparatusValue { get; private set; } = 240;
+
+
+		[ConfigDesc("How many monsters should spawn during the meltdown sequence? Set to 0 to disable.")]
+		[ConfigRange(0f, 10f)]
+		public int MonsterSpawnAmount { get; private set; } = 5;
+
+
+		[ConfigDesc("Should the lights turn on periodically? Disabling this option makes them permanently off. (Matches Vanilla Behaviour)")]
+		public bool EmergencyLights { get; private set; } = true;
+
+
+		[ConfigDesc("How many people need to be nearby to the apparatus for it to be collectable? Will go UP TO the value, e.g. if it's set to 3 and there are only 2 people in the lobby, everyone will need to be there.\nThis value is ignored and anybody can grab it from 9PM")]
+		[ConfigRange(1f, 10f)]
+		public int MinPeopleToPullApparatus { get; private set; } = 2;
+
+
+		[ConfigDesc("Should baby maneater's enter a crying state when Meltdown starts?")]
+		public bool ScareBabyManeaters { get; private set; } = true;
+
+
+		[ConfigDesc("Should the meltdown timer be shortened when taking off from the ship so the explosion can be seen every time?")]
+		public bool ShortenMeltdownTimerOnShipLeave { get; private set; } = true;
+
+
+		[ConfigDesc("What enemies to exclude from spawning in the meltdown sequence. Comma seperated list. Supports modded entities.")]
+		public string DisallowedEnemies { get; private set; } = "Centipede,Hoarding bug";
+
+
+		[ConfigDesc("How long until the ship's scanner can scan the reactor. (Doesn't affect the vanilla `scan` command)")]
+		[ConfigRange(0f, 20f)]
+		public float ShipScanCooldown { get; private set; } = 15f;
+
+
+		[ConfigDesc("How accurate is the ship's scanner when scanning the reactor. Higher values mean it is more uncertain, and lower values is more accurate. (Doesn't affect the vanilla `scan` command)")]
+		[ConfigRange(0f, 100f)]
+		public float ShipScanAccuracy { get; private set; } = 15f;
+
+
+		[ConfigGroup("Integrations")]
+		[ConfigDesc("Should the apparatus value be multiplied by the current weather. Requires WeatherRegistry to work.")]
+		public bool WeatherRegistryIntegration { get; private set; } = true;
+
+
+		[ConfigGroup("UNSUPPORTED")]
+		[ConfigDesc("ABSOLUETLY NOT SUPPORTED OR RECOMMENDED! Change the length of the meltdown sequence. If this breaks I am not fixing it, you have been warned.")]
+		[ConfigRange(60f, 300f)]
+		public int MeltdownTime { get; private set; } = 120;
+
+
+		public MeltdownConfig(ConfigFile file)
+			: base(file)
+		{
+		}
+
+		public List<string> GetDisallowedEnemies()
+		{
+			return DisallowedEnemies.Split(',').ToList();
+		}
+	}
+}
+namespace FacilityMeltdown.Behaviours
+{
+	public class MeltdownEvents : MonoBehaviour
+	{
+		[Serializable]
+		public class Marker
+		{
+			internal bool Triggered;
+
+			[field: SerializeField]
+			public float Progress { get; private set; } = 0.5f;
+
+
+			[field: SerializeField]
+			public UnityEvent OnMarker { get; private set; }
+		}
+
+		[SerializeField]
+		private UnityEvent OnMeltdownStart;
+
+		[SerializeField]
+		private List<Marker> markers = new List<Marker>();
+
+		private void OnEnable()
+		{
+			MeltdownAPI.OnMeltdownStart = (Action)Delegate.Combine(MeltdownAPI.OnMeltdownStart, new Action(OnMeltdownStart.Invoke));
+		}
+
+		private void OnDisable()
+		{
+			MeltdownAPI.OnMeltdownStart = (Action)Delegate.Remove(MeltdownAPI.OnMeltdownStart, new Action(OnMeltdownStart.Invoke));
+		}
+
+		private void Update()
+		{
+			if (!MeltdownAPI.MeltdownStarted)
+			{
+				return;
+			}
+			foreach (Marker marker in markers)
+			{
+				if (!marker.Triggered && !(marker.Progress > MeltdownHandler.Instance.Progress))
+				{
+					marker.OnMarker.Invoke();
+					marker.Triggered = true;
+				}
+			}
+		}
+	}
+	public class MeltdownInteriorMapper : MonoBehaviour
+	{
+		public static MeltdownInteriorMapper Instance { get; private set; }
+
+		[Tooltip("Colour to flash lights with, should probably just leave this at red. Only applies to inside lights.")]
+		[field: SerializeField]
+		public Color outsideEmergencyLightColour { get; private set; } = Color.red;
+
+
+		private void Awake()
+		{
+			Instance = this;
+		}
+
+		private void OnDisable()
+		{
+			if ((Object)(object)Instance != (Object)null)
+			{
+				Instance = null;
+			}
+		}
+
+		internal static void EnsureMeltdownInteriorMapper()
+		{
+			//IL_0030: Unknown result type (might be due to invalid IL or missing references)
+			if (!((Object)(object)Instance != (Object)null) && !((Object)(object)Object.FindObjectOfType<MeltdownInteriorMapper>() != (Object)null))
+			{
+				MeltdownPlugin.logger.LogInfo((object)"Creating InteriorMapper!");
+				Instance = new GameObject("DefaultMeltdownInteriorMappings").AddComponent<MeltdownInteriorMapper>();
+			}
+		}
+	}
+	public class MeltdownMoonMapper : MonoBehaviour
+	{
+		[SerializeField]
+		[Tooltip("Lights to flash red during the meltdown sequence. Doesn't include inside lights.")]
+		public List<Light> outsideEmergencyLights = new List<Light>();
+
+		public static MeltdownMoonMapper Instance { get; private set; }
+
+		[Tooltip("Colour to flash lights with, should probably just leave this at red. Only applies to outside lights.")]
+		[field: SerializeField]
+		public Color outsideEmergencyLightColour { get; private set; } = Color.red;
+
+
+		[field: SerializeField]
+		public GameObject shockwavePrefab { get; private set; }
+
+		[field: SerializeField]
+		public GameObject explosionPrefab { get; private set; }
+
+		[field: SerializeField]
+		public Vector3 EffectOrigin { get; private set; }
+
+		private void Awake()
+		{
+			//IL_0007: Unknown result type (might be due to invalid IL or missing references)
+			//IL_000c: Unknown result type (might be due to invalid IL or missing references)
+			//IL_001b: Unknown result type (might be due to invalid IL or missing references)
+			Instance = this;
+			if (EffectOrigin == Vector3.zero)
+			{
+				EffectOrigin = RoundManager.FindMainEntrancePosition(false, true);
+			}
+		}
+
+		private void OnDisable()
+		{
+			if ((Object)(object)Instance != (Object)null)
+			{
+				Instance = null;
+			}
+		}
+
+		internal static void EnsureMeltdownMoonMapper()
+		{
+			//IL_0030: Unknown result type (might be due to invalid IL or missing references)
+			if (!((Object)(object)Instance != (Object)null) && !((Object)(object)Object.FindObjectOfType<MeltdownMoonMapper>() != (Object)null))
+			{
+				MeltdownPlugin.logger.LogInfo((object)"Creating MoonMapper!");
+				Instance = new GameObject("DefaultMeltdownMappings").AddComponent<MeltdownMoonMapper>();
+				Instance.outsideEmergencyLights = (from light in GameObject.Find("Environment").GetComponentsInChildren<Light>()
+					where CheckParentForDisallowed(((Component)light).transform)
+					select light).ToList();
+			}
+		}
+
+		private static bool CheckParentForDisallowed(Transform child)
+		{
+			if (((Object)((Component)child).gameObject).name == "Sun" || ((Object)((Component)child).gameObject).name == "ItemShipAnimContainer" || ((Object)((Component)child).gameObject).name == "MapPropsContainer")
+			{
+				return false;
+			}
+			if ((Object)(object)child.parent == (Object)null)
+			{
+				return true;
+			}
+			return CheckParentForDisallowed(child.parent);
+		}
+	}
+	public class RadiationSource : MonoBehaviour
+	{
+		[HideInInspector]
+		public static List<RadiationSource> radiators = new List<RadiationSource>();
+
+		[Range(0f, 100f)]
+		public float radiationAmount = 70f;
+
+		public bool isGlobal;
+
+		[Range(0f, 100f)]
+		public float radiationDistance = 50f;
+
+		[Header("Decay Settings")]
+		public bool doesDecay;
+
+		[Range(0f, 120f)]
+		public float decayTime = 120f;
+
+		public AnimationCurve radiationOutputVsDecay = new AnimationCurve((Keyframe[])(object)new Keyframe[2]
+		{
+			new Keyframe(0f, 1f),
+			new Keyframe(0f, 1f)
+		});
+
+		private float existingTime;
+
+		public static float CollectRadiationFromPoint(Vector3 point)
+		{
+			//IL_001d: Unknown result type (might be due to invalid IL or missing references)
+			float num = 0f;
+			foreach (RadiationSource radiator in radiators)
+			{
+				num += radiator.GetRadiationFromPoint(point);
+			}
+			return num;
+		}
+
+		public float GetRadiationAtDistance(float distance)
+		{
+			if (distance > radiationDistance)
+			{
+				return 0f;
+			}
+			float num = Mathf.Clamp01((radiationDistance - distance) / radiationDistance);
+			if (isGlobal)
+			{
+				num = 1f;
+			}
+			return num * radiationAmount * GetDecayReduction();
+		}
+
+		public float GetDecayProgress()
+		{
+			if (!doesDecay)
+			{
+				return 0f;
+			}
+			return Mathf.Clamp01(existingTime / decayTime);
+		}
+
+		public float GetDecayReduction()
+		{
+			if (!doesDecay)
+			{
+				return 1f;
+			}
+			return radiationOutputVsDecay.Evaluate(GetDecayProgress());
+		}
+
+		public float GetRadiationFromPoint(Vector3 point)
+		{
+			//IL_0007: Unknown result type (might be due to invalid IL or missing references)
+			//IL_000c: Unknown result type (might be due to invalid IL or missing references)
+			return GetRadiationAtDistance(Vector3.Distance(((Component)this).transform.position, point));
+		}
+
+		private void OnEnable()
+		{
+			radiators.Add(this);
+			MeltdownPlugin.logger.LogInfo((object)$"A new RadiationSource was created, there is now: {radiators.Count} radiators.");
+		}
+
+		private void OnDisable()
+		{
+			radiators.Remove(this);
+		}
+
+		private void Update()
+		{
+			existingTime += Time.deltaTime;
+		}
+	}
+}
+namespace FacilityMeltdown.API
+{
+	public static class MeltdownAPI
+	{
+		internal static Action OnMeltdownStart = delegate
+		{
+		};
+
+		public static bool MeltdownStarted => (Object)(object)MeltdownHandler.Instance != (Object)null;
+
+		public static void StartMeltdown(string modGUID)
+		{
+			if (!MeltdownStarted)
+			{
+				MeltdownPlugin.logger.LogInfo((object)("A mod (" + modGUID + ") has begun a meltdown!"));
+				if (!((NetworkBehaviour)GameNetworkManager.Instance.localPlayerController).IsHost)
+				{
+					MeltdownPlugin.logger.LogWarning((object)"Local Player isn't host! Aborting!!");
+					return;
+				}
+				GameObject val = Object.Instantiate<GameObject>(MeltdownPlugin.assets.meltdownHandlerPrefab);
+				val.GetComponent<NetworkObject>().Spawn(false);
+			}
+		}
+
+		public static void RegisterMeltdownListener(Action callback)
+		{
+			OnMeltdownStart = (Action)Delegate.Combine(OnMeltdownStart, callback);
+		}
+	}
+}
+namespace System.Runtime.CompilerServices
+{
+	[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+	internal sealed class IgnoresAccessChecksToAttribute : Attribute
+	{
+		public IgnoresAccessChecksToAttribute(string assemblyName)
+		{
+		}
+	}
+}
+namespace __GEN
+{
+	internal class NetworkVariableSerializationHelper
+	{
+		[RuntimeInitializeOnLoadMethod]
+		internal static void InitializeSerialization()
+		{
+		}
+	}
+}
+namespace FacilityMeltdown.NetcodePatcher
+{
+	[AttributeUsage(AttributeTargets.Module)]
+	internal class NetcodePatchedAssemblyAttribute : Attribute
+	{
+	}
+}

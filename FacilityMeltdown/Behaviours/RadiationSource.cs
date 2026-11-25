@@ -43,6 +43,7 @@ namespace FacilityMeltdown.Behaviours {
 
         public float GetDecayProgress() {
             if(!doesDecay) return 0;
+            if(decayTime <= 0) return 1;
             return Mathf.Clamp01(existingTime / decayTime);
         }
 

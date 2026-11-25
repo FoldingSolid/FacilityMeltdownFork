@@ -49,7 +49,14 @@ public class MeltdownMoonMapper : MonoBehaviour
 
         MeltdownPlugin.logger.LogInfo("Creating MoonMapper!");
         Instance = new GameObject("DefaultMeltdownMappings").AddComponent<MeltdownMoonMapper>();
-        Instance.outsideEmergencyLights = GameObject.Find("Environment").GetComponentsInChildren<Light>().Where((light) =>
+        GameObject environment = GameObject.Find("Environment");
+        if (environment == null)
+        {
+            MeltdownPlugin.logger.LogWarning("Unable to find an Environment object; outside emergency lights will be disabled for this moon.");
+            return;
+        }
+
+        Instance.outsideEmergencyLights = environment.GetComponentsInChildren<Light>().Where((light) =>
         {
             return CheckParentForDisallowed(light.transform);
         }).ToList();

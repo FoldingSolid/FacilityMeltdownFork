@@ -1,0 +1,10 @@
+{
+  "name": "FacilityMeltdownFork",
+  "version_number": "2.7.501",
+  "website_url": "https://github.com/FoldingSolid/FacilityMeltdownFork",
+  "description": "A fork of FacilityMeltdown by loafc, with bug fixes and updates for Lethal Company v81.",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2305",
+    "TeamXiaolan-DawnLib-0.9.27"
+  ]
+}

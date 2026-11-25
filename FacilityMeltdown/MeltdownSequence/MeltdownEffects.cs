@@ -2,7 +2,6 @@
 using FacilityMeltdown.Behaviours;
 using FacilityMeltdown.MeltdownSequence.Behaviours;
 using FacilityMeltdown.Util;
-using LethalLib.Modules;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -30,7 +29,7 @@ public static class MeltdownEffects
     public static IEnumerator RepeatUntilEndOfMeltdown(Func<IEnumerator> enumerator)
     {
         yield return new WaitForSeconds(Random.Range(0f, 1f));
-        while (true)
+        while (MeltdownHandler.Instance != null && !MeltdownHandler.Instance.HasExplosionOccured())
         { // we be a bit silly :3
             MeltdownPlugin.logger.LogDebug("looping effect");
             yield return enumerator();
@@ -104,7 +103,7 @@ public static class MeltdownEffects
 
     public static void InsideParticleEffects()
     {
-        if (MeltdownPlugin.clientConfig.ScreenShake)
+        if (MeltdownPlugin.config.ParticleEffects)
         {
             for (int i = 0; i < UnityEngine.Random.Range(5, 15); i++)
             {
@@ -114,7 +113,7 @@ public static class MeltdownEffects
                 {
                     GameObject prefab = MeltdownPlugin.assets.facilityEffects[UnityEngine.Random.Range(0, MeltdownPlugin.assets.facilityEffects.Length)];
                     GameObject created = GameObject.Instantiate(prefab);
-                    prefab.transform.position = hit.point;
+                    created.transform.position = hit.point;
                     created.transform.parent = MeltdownHandler.Instance.transform;
                 }
 
@@ -123,7 +122,7 @@ public static class MeltdownEffects
 
         if (GameNetworkManager.Instance.localPlayerController.isInsideFactory)
             GameObject.Instantiate(StartOfRound.Instance.explosionPrefab, GetRandomPositionNearPlayer(), Quaternion.Euler(-90f, 0f, 0f), RoundManager.Instance.mapPropsContainer.transform);
-        if (MeltdownPlugin.clientConfig.ScreenShake)
+        if (MeltdownPlugin.config.ScreenShake)
         {
             if (MeltdownHandler.Instance.Progress > .5f)
             {
@@ -139,7 +138,7 @@ public static class MeltdownEffects
 
     public static IEnumerator WarningAnnouncer(AudioSource source)
     {
-        source.volume = MeltdownPlugin.clientConfig.MusicVolume;
+        source.volume = MeltdownPlugin.config.MusicVolume / 100f;
 
         AudioClip sound = MeltdownPlugin.assets.warnings[UnityEngine.Random.Range(0, MeltdownPlugin.assets.warnings.Length)];
         source.clip = sound;

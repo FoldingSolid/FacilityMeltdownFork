@@ -31,7 +31,7 @@ namespace FacilityMeltdown.MeltdownSequence.Behaviours
         {
             PlayerControllerB player = GameNetworkManager.Instance.localPlayerController;
 
-            size += Time.deltaTime * 50;
+            size += Time.deltaTime * 100;
             transform.localScale = Vector3.one * size;
 
             if (player.isInsideFactory)
@@ -41,7 +41,7 @@ namespace FacilityMeltdown.MeltdownSequence.Behaviours
             else
             {
                 renderer.enabled = true;
-                if (PlayerIsInsideShockwave() && !localPlayerCameraShake && MeltdownPlugin.clientConfig.ScreenShake)
+                if (PlayerIsInsideShockwave() && !localPlayerCameraShake && MeltdownPlugin.config.ScreenShake)
                 {
                     ScreenShake();
                     localPlayerCameraShake = true;

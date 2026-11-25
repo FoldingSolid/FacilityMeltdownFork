@@ -1,0 +1,7 @@
+﻿{
+  "tag": "diomedes:scrap_remove_excludeable",
+  "values": [
+    "lethal_company:shotgun",
+    "lethal_company:kitchen_knife"
+  ]
+}

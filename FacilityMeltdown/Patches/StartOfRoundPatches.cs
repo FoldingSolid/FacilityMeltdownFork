@@ -12,7 +12,7 @@ namespace FacilityMeltdown.Patches
 {
     [HarmonyPatch(typeof(StartOfRound))]
     internal static class StartOfRoundPatches {
-        [HarmonyPrefix, HarmonyPatch(nameof(StartOfRound.EndOfGame))]
+        [HarmonyPrefix, HarmonyPatch("EndOfGame")]
         internal static void UnloadMeltdownHandler() {
             if(MeltdownHandler.Instance)
                 GameObject.Destroy(MeltdownHandler.Instance.gameObject);

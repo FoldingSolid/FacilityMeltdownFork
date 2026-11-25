@@ -11,7 +11,7 @@ namespace FacilityMeltdown.Patches {
     internal class GameNetworkManagerPatch {
         internal static List<GameObject> networkPrefabsToRegister = [];
 
-        [HarmonyPatch(nameof(GameNetworkManager.Start)), HarmonyPrefix]
+        [HarmonyPatch("Start"), HarmonyPrefix]
         static void AddNetworkPrefabs() {
             foreach(GameObject prefab in networkPrefabsToRegister) {
                 NetworkManager.Singleton.AddNetworkPrefab(prefab);
@@ -20,7 +20,7 @@ namespace FacilityMeltdown.Patches {
             MeltdownPlugin.logger.LogInfo($"Succesfully registered {networkPrefabsToRegister.Count} network prefabs.");
         }
 
-        [HarmonyPostfix, HarmonyPatch(nameof(GameNetworkManager.StartDisconnect))]
+        [HarmonyPostfix, HarmonyPatch("StartDisconnect")]
         public static void PlayerLeave() {
             MeltdownPlugin.config = MeltdownConfig.Default;
         }

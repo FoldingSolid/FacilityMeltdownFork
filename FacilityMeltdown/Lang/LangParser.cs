@@ -19,6 +19,7 @@ namespace FacilityMeltdown.Lang {
             string result = reader.ReadToEnd();
 
             languages = JsonConvert.DeserializeObject<Dictionary<string, string>>(result);
+            defaultLanguage = LoadLanguage("en");
         }
 
         internal static Dictionary<string, object> LoadLanguage(string id) {
@@ -60,7 +61,6 @@ namespace FacilityMeltdown.Lang {
         internal static JArray GetTranslationSet(string translation) {
 
             if(loadedLanguage.TryGetValue(translation, out var result)) {
-                MeltdownPlugin.logger.LogInfo(result.GetType());
                 return result as JArray;
             }
 

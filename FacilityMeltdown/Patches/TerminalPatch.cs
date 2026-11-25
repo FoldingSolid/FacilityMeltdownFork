@@ -15,13 +15,13 @@ internal class TerminalPatch {
         public float generatedAt = Time.time;
 
         public string GetFlavourText() {
-            if(timeRemaining / MeltdownPlugin.config.MeltdownTime > .75f) {
+            if(timeRemaining / MeltdownHandler.Instance.Duration > .75f) {
                 return "reactorscan.result.flavour.start";
-            } else if(timeRemaining / MeltdownPlugin.config.MeltdownTime > .5f) {
+            } else if(timeRemaining / MeltdownHandler.Instance.Duration > .5f) {
                 return "reactorscan.result.flavour.low";
-            } else if(timeRemaining / MeltdownPlugin.config.MeltdownTime > .33f) {
+            } else if(timeRemaining / MeltdownHandler.Instance.Duration > .33f) {
                 return "reactorscan.result.flavour.medium";
-            } else if(timeRemaining / MeltdownPlugin.config.MeltdownTime > .15f) {
+            } else if(timeRemaining / MeltdownHandler.Instance.Duration > .15f) {
                 return "reactorscan.result.flavour.high";
             }
             return "";
@@ -71,10 +71,12 @@ internal class TerminalPatch {
     }
 
     internal static ReactorHealthReport GetNewReactorHealthReport() {
-        float reactorInstability = ((MeltdownPlugin.config.MeltdownTime - MeltdownHandler.Instance.meltdownTimer) / MeltdownPlugin.config.MeltdownTime) * 100; // this is at perfect accuracy
-        reactorInstability = Mathf.Round(reactorInstability / MeltdownPlugin.config.ShipScanAccuracy) * MeltdownPlugin.config.ShipScanAccuracy; // now the ship is not 100% perfect but still consistent (unlike a random value)
+        float meltdownDuration = MeltdownHandler.Instance.Duration;
+        float reactorInstability = ((meltdownDuration - MeltdownHandler.Instance.meltdownTimer) / meltdownDuration) * 100; // this is at perfect accuracy
+        float scanAccuracy = Mathf.Max(1f, MeltdownPlugin.config.ShipScanAccuracy);
+        reactorInstability = Mathf.Round(reactorInstability / scanAccuracy) * scanAccuracy; // now the ship is not 100% perfect but still consistent (unlike a random value)
 
-        float timeRemaining = (1 - (reactorInstability / 100)) * MeltdownPlugin.config.MeltdownTime; // not perfectly accurate either
+        float timeRemaining = (1 - (reactorInstability / 100)) * meltdownDuration; // not perfectly accurate either
 
         ReactorHealthReport report = new ReactorHealthReport {
             reactorInstability = reactorInstability,
@@ -87,20 +89,20 @@ internal class TerminalPatch {
     internal static List<TerminalKeyword> terminalKeywordsToRegister = [];
     internal static List<TerminalNode> terminalNodesToRegister = [];
 
-    [HarmonyPostfix, HarmonyPatch(nameof(Terminal.Awake))]
+    [HarmonyPostfix, HarmonyPatch("Awake")]
     internal static void RegisterNodes(Terminal __instance) {
         __instance.terminalNodes.allKeywords = __instance.terminalNodes.allKeywords.AddRangeToArray([.. terminalKeywordsToRegister]);
         __instance.terminalNodes.terminalNodes.AddRange(terminalNodesToRegister);
     }
 
-    [HarmonyPostfix, HarmonyPatch(nameof(Terminal.TextPostProcess))]
+    [HarmonyPostfix, HarmonyPatch("TextPostProcess")]
     internal static void ProcessReactorText(TerminalNode node, ref string __result) {
         if(node == MeltdownPlugin.assets.reactorHealthNode) {
             __result = "\n\n\n" + GetTextForNode();
         }
     }
 
-    [HarmonyPostfix, HarmonyPatch(typeof(StormyWeather), nameof(StormyWeather.GetMetalObjectsAfterDelay))]
+    [HarmonyPostfix, HarmonyPatch(typeof(StormyWeather), "GetMetalObjectsAfterDelay")]
     internal static void CancelCoroutine(StormyWeather __instance, ref IEnumerator __result) {
         __instance.StopCoroutine(__result);
     }

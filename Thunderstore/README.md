@@ -24,14 +24,20 @@ Link to tutorial: https://www.youtube.com/watch?v=D5hKkSLlEhk
 
 ### with loaforcsSoundAPI
 [loaforcsSoundAPI](https://thunderstore.io/c/lethal-company/p/loaforc/loaforcsSoundAPI/) is a mod I built specfically for the LR team. There is a template avaliable [here](https://github.com/LoafOrc/loaforcsSoundAPI-examples), otherwise read the [getting started wiki](https://github.com/LoafOrc/loaforcsSoundAPI/wiki/Making-a-simple-Sound%E2%80%90Pack).
-**This tool is still in development and I recommened using PizzaTowerEscapeMusic for now**
-However this comes with the added bonus of being able to use Meltdown's dynamic system of speeding up the warning voice sounds as the meltdown occurs.
+It is optional, but enables the included dynamic warning-voice mappings and its meltdown-state conditions.
+
+### with Diomedes
+[Diomedes](https://thunderstore.io/c/lethal-company/p/DiomedesLC/Diomedes/) is optional. When present, FacilityMeltdown adds bingo challenges for triggering a meltdown on any moon, Embrion, Artifice, or Titan.
 
 ## Config
-All game balance options are synced (only the host needs to edit them, but it wont hurt to have everyone using the same config). Visual and Audio settings are independent of what is synced.
+All Facility Meltdown settings now live in one file: `me.loaforc.facilitymeltdown.cfg`. On first launch after upgrading, values from the former `me.loaforc.facilitymeltdown.Client.cfg` are copied into that file; the old file is then unused and can be removed.
+
+Set `ApparatusValueMin` and `ApparatusValueMax` to choose an inclusive apparatus-value range. The selected value is deterministic for that moon, so every player receives the same value. Set both values to the same number to keep a fixed value. WeatherRegistry multiplication, if enabled, is applied afterward.
+
+The file also contains bonus enemy spawns, emergency lights, required nearby players, Maneater behavior, ship-departure countdown shortening, excluded enemies, reactor-health scans, WeatherRegistry value multiplication, meltdown duration, music/announcement volume, outside music, camera shake, particles, the optional countdown HUD, and language. The countdown tracks the host's active meltdown duration and reaches zero when the explosion occurs.
 
 ### OPTIONAL ingame config editors
-[lethalconfig](https://thunderstore.io/c/lethal-company/p/AinaVT/LethalConfig/) or [lethalsettings](https://thunderstore.io/c/lethal-company/p/willis81808/LethalSettings/) will let you edit the settings in-game.
+[lethalconfig](https://thunderstore.io/c/lethal-company/p/AinaVT/LethalConfig/) lets you edit the settings in-game. LethalSettings is no longer supported by the current build.
 
 ### Tips and Tricks
 - Make sure you plan your route before you take it. It's most likely you have time to double check you know where to go.

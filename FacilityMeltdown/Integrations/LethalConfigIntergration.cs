@@ -22,7 +22,6 @@ class LethalConfigIntergration {
         LethalConfigManager.SetModDescription("Maybe taking the appartus isn't such a great idea...");
 
         HandleConfig(MeltdownPlugin.config);
-        HandleConfig(MeltdownPlugin.clientConfig);
     }
 
     static void HandleConfig<T>(LoafConfig<T> config) where T : LoafConfig<T> {

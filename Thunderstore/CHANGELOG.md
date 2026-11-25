@@ -1,3 +1,13 @@
+## v2.7.5
+- Migrated the fork to the current Lethal Company assemblies and DawnLib content API.
+- Added optional Diomedes bingo challenges and loaforc's SoundAPI conditions.
+- Added current package assets, translations, SoundAPI mapping, newer meltdown protections, and the Mirage masked-enemy compatibility fix.
+- Fixed optional WeatherRegistry handling so its absence cannot block a meltdown, and aligned apparatus setup with the current source.
+- Fixed particle-effect placement and settings, warning-audio volume scaling, English translation fallback, and Geiger/radiation edge cases.
+- Made the configurable meltdown duration supported: active meltdowns snapshot their duration, terminal scans and progress milestones stay in sync, dialogue reports fractional minutes accurately, and repeating effects stop at the explosion.
+- Consolidated every setting into `me.loaforc.facilitymeltdown.cfg`, with one-time import of existing client settings.
+- Replaced the fixed apparatus-value override with deterministic inclusive minimum and maximum values.
+
 ## v2.6
 - Entire rewrite of the config system.
 - Meltdown now entirely handles config syncing, CSync is no longer a dependency.

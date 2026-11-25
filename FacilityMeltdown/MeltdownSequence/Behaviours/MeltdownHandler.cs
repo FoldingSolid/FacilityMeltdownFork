@@ -2,14 +2,15 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using FacilityMeltdown.API;
 using FacilityMeltdown.Behaviours;
 using FacilityMeltdown.Lang;
 using FacilityMeltdown.Util;
+using Dawn;
 using GameNetcodeStuff;
 using JetBrains.Annotations;
-using LethalLib.Modules;
 using Newtonsoft.Json.Linq;
 using Unity.Netcode;
 using UnityEngine;
@@ -23,13 +24,17 @@ public class MeltdownHandler : NetworkBehaviour
 {
     public float TimeLeftUntilMeltdown => meltdownTimer;
 
-    public float Progress => 1 - (TimeLeftUntilMeltdown / MeltdownPlugin.config.MeltdownTime);
+    internal float Duration { get; private set; }
+
+    public float Progress => Duration <= 0 ? 0 : Mathf.Clamp01(1 - (TimeLeftUntilMeltdown / Duration));
 
     static PlayerControllerB Player => GameNetworkManager.Instance.localPlayerController;
     internal static MeltdownHandler Instance { get; private set; }
 
     internal float meltdownTimer;
     bool meltdownStarted = false;
+    float nextCountdownShakeTime;
+    internal LungProp causingLungProp;
 
     GameObject explosion, shockwave;
 
@@ -38,15 +43,38 @@ public class MeltdownHandler : NetworkBehaviour
 
     Vector3 effectOrigin => MeltdownMoonMapper.Instance.EffectOrigin;
 
-    [ClientRpc]
-    void StartMeltdownClientRpc()
+    // This is intentionally implemented in the same per-behaviour form as the
+    // current Facility Meltdown release. NetcodePatcher 3 generates a global
+    // registration that v81 does not use for plugin-added NetworkBehaviours.
+    void SendStartMeltdownRpc(int duration)
+    {
+        NetworkManager networkManager = NetworkManager;
+        if (networkManager == null || !networkManager.IsListening)
+            return;
+
+        if (__rpc_exec_stage != __RpcExecStage.Execute && (networkManager.IsServer || networkManager.IsHost))
+        {
+            ClientRpcParams clientRpcParams = default;
+            FastBufferWriter bufferWriter = __beginSendClientRpc(3631067672u, clientRpcParams, RpcDelivery.Reliable);
+            bufferWriter.WriteValueSafe(in duration, default);
+            __endSendClientRpc(ref bufferWriter, 3631067672u, clientRpcParams, RpcDelivery.Reliable);
+        }
+
+        if (__rpc_exec_stage == __RpcExecStage.Execute && (networkManager.IsClient || networkManager.IsHost))
+        {
+            __rpc_exec_stage = __RpcExecStage.Send;
+            StartMeltdown(duration);
+        }
+    }
+
+    void StartMeltdown(int duration)
     {
         if (Instance != null) return;
         Instance = this;
 
         Stopwatch timer = new Stopwatch();
 
-        MeltdownPlugin.logger.LogInfo("Beginning Meltdown Sequence! I'd run if I were you!");
+        MeltdownPlugin.logger.LogInfo($"Beginning Meltdown Sequence! Countdown: {duration} seconds. I'd run if I were you!");
 
         timer.Start();
         MeltdownMoonMapper.EnsureMeltdownMoonMapper();
@@ -59,7 +87,13 @@ public class MeltdownHandler : NetworkBehaviour
         timer.Stop();
         MeltdownPlugin.logger.LogDebug($"Ensuring data objects exist: {timer.ElapsedMilliseconds}ms");
 
-        meltdownTimer = MeltdownPlugin.config.MeltdownTime;
+        Duration = duration;
+        meltdownTimer = Duration;
+
+        if (MeltdownPlugin.config.ShowCountdownTimer && !TryGetComponent<MeltdownCountdownTimer>(out _))
+        {
+            gameObject.AddComponent<MeltdownCountdownTimer>();
+        }
 
         timer.Restart();
 
@@ -157,7 +191,7 @@ public class MeltdownHandler : NetworkBehaviour
             HUDManager.Instance.DisplayGlobalNotification("Failed to find effect origin... Things will look broken.");
         }
 
-        if (MeltdownPlugin.clientConfig.ScreenShake)
+        if (MeltdownPlugin.config.ScreenShake)
         {
             HUDManager.Instance.ShakeCamera(ScreenShakeType.VeryStrong);
             HUDManager.Instance.ShakeCamera(ScreenShakeType.Long);
@@ -178,24 +212,47 @@ public class MeltdownHandler : NetworkBehaviour
         List<string> disallowed = MeltdownPlugin.config.GetDisallowedEnemies();
         List<SpawnableEnemyWithRarity> spawnProbibilities = RoundManager.Instance.currentLevel.Enemies.Where(enemy =>
         {
-            return !EnemyCannotBeSpawned(enemy.enemyType) && !disallowed.Contains(enemy.enemyType.enemyName);
+            if (enemy == null || enemy.enemyType == null)
+            {
+                MeltdownPlugin.logger.LogWarning("Ignoring an invalid enemy entry in the meltdown spawn pool.");
+                return false;
+            }
+
+            return enemy.rarity > 0 && !EnemyCannotBeSpawned(enemy.enemyType) && !disallowed.Contains(enemy.enemyType.enemyName) && IsEnemyEligibleForMeltdown(enemy.enemyType);
         }).ToList();
 
         timer.Stop();
         MeltdownPlugin.logger.LogDebug($"Filtering enemies: {timer.ElapsedMilliseconds}ms");
 
         timer.Restart();
-        List<EnemyVent> avaliableVents = RoundManager.Instance.allEnemyVents.Where(vent => !vent.occupied).ToList();
+        List<EnemyVent> avaliableVents = RoundManager.Instance.allEnemyVents.Where(vent =>
+        {
+            if (vent == null)
+            {
+                MeltdownPlugin.logger.LogWarning("Ignoring a null enemy vent during the meltdown sequence.");
+                return false;
+            }
+
+            return !vent.occupied;
+        }).ToList();
         timer.Stop();
         MeltdownPlugin.logger.LogDebug($"Filtering vents: {timer.ElapsedMilliseconds}ms");
         timer.Restart();
 
 
-        for (int i = 0; i < Mathf.Min(MeltdownPlugin.config.MonsterSpawnAmount, avaliableVents.Count); i++)
+        if (spawnProbibilities.Count == 0)
         {
-            EnemyVent vent = avaliableVents[Random.Range(0, avaliableVents.Count)];
+            MeltdownPlugin.logger.LogWarning("No eligible enemies are available to spawn during the meltdown sequence.");
+            return;
+        }
+
+        int spawnCount = Mathf.Min(MeltdownPlugin.config.MonsterSpawnAmount, avaliableVents.Count);
+        System.Random spawnRandom = new System.Random(StartOfRound.Instance.randomMapSeed + 1923847);
+        for (int i = 0; i < spawnCount; i++)
+        {
+            EnemyVent vent = avaliableVents[spawnRandom.Next(avaliableVents.Count)];
             avaliableVents.Remove(vent);
-            SpawnableEnemyWithRarity enemy = spawnProbibilities[Random.Range(0, avaliableVents.Count)];
+            SpawnableEnemyWithRarity enemy = spawnProbibilities[spawnRandom.Next(spawnProbibilities.Count)];
 
             RoundManager.Instance.currentEnemyPower += enemy.enemyType.PowerLevel;
             MeltdownPlugin.logger.LogInfo("Spawning a " + enemy.enemyType.enemyName + " during the meltdown sequence");
@@ -205,15 +262,77 @@ public class MeltdownHandler : NetworkBehaviour
         timer.Stop();
         MeltdownPlugin.logger.LogDebug($"Spawning enemies: {timer.ElapsedMilliseconds}ms");
 
+        if (MeltdownPlugin.config.ScareBabyManeaters && causingLungProp != null)
+        {
+            foreach (CaveDwellerAI maneater in FindObjectsOfType<CaveDwellerAI>())
+            {
+                if (maneater.currentBehaviourStateIndex == 0)
+                {
+                    maneater.ScareBaby(causingLungProp.transform.position);
+                }
+            }
+        }
+    }
+
+    bool IsEnemyEligibleForMeltdown(EnemyType enemyType)
+    {
+        DawnEnemyInfo dawnInfo = EnemyTypeExtensions.GetDawnInfo(enemyType);
+        if (dawnInfo == null)
+        {
+            MeltdownPlugin.logger.LogWarning($"{enemyType.name} has no DawnEnemyInfo and will not spawn during the meltdown sequence.");
+            return false;
+        }
+
+        return !dawnInfo.HasTag(MeltdownTags.NotSpawnable) && !dawnInfo.HasTag(Tags.Unimplemented);
     }
 
     public override void OnNetworkSpawn()
     {
-        if (!MeltdownPlugin.loadedFully || !IsHost)
+        if (!MeltdownPlugin.loadedFully || !IsServer)
         {
             return;
         }
-        StartMeltdownClientRpc();
+
+        MeltdownMoonMapper.EnsureMeltdownMoonMapper();
+        MeltdownInteriorMapper.EnsureMeltdownInteriorMapper();
+
+        if (effectOrigin == Vector3.zero)
+        {
+            MeltdownPlugin.logger.LogError("Effect origin is Vector3.zero; the meltdown will not start on this moon.");
+            return;
+        }
+
+        int duration = MeltdownPlugin.config.MeltdownTime;
+        MeltdownPlugin.logger.LogInfo($"Starting meltdown with host-configured duration: {duration} seconds.");
+        SendStartMeltdownRpc(duration);
+    }
+
+    protected override void __initializeRpcs()
+    {
+        __registerRpc(3631067672u, __rpc_handler_3631067672, "StartMeltdownClientRpc");
+        base.__initializeRpcs();
+    }
+
+    static void __rpc_handler_3631067672(NetworkBehaviour target, FastBufferReader reader, __RpcParams rpcParams)
+    {
+        if (target is not MeltdownHandler handler)
+            return;
+
+        NetworkManager networkManager = handler.NetworkManager;
+        if (networkManager == null || !networkManager.IsListening)
+            return;
+
+        if (!reader.TryBeginRead(sizeof(int)))
+        {
+            MeltdownPlugin.logger.LogError("Meltdown start RPC was missing its duration.");
+            return;
+        }
+
+        reader.ReadValueSafe(out int duration, default);
+
+        handler.__rpc_exec_stage = __RpcExecStage.Execute;
+        handler.SendStartMeltdownRpc(duration);
+        handler.__rpc_exec_stage = __RpcExecStage.Send;
     }
 
     internal bool EnemyCannotBeSpawned(EnemyType type)
@@ -229,7 +348,8 @@ public class MeltdownHandler : NetworkBehaviour
         {
             dialogue[i] = new DialogueSegment
             {
-                bodyText = ((string)translatedDialogue[i]).Replace("<meltdown_time>", Math.Round((float)MeltdownPlugin.config.MeltdownTime / 60).ToString()),
+                bodyText = ((string)translatedDialogue[i]).Replace("<meltdown_time>", ((Instance?.Duration ?? MeltdownPlugin.config.MeltdownTime) / 60f)
+                    .ToString("0.#", CultureInfo.InvariantCulture)),
                 speakerText = "meltdown.dialogue.speaker".Translate()
             };
         }
@@ -260,14 +380,15 @@ public class MeltdownHandler : NetworkBehaviour
         if (HasExplosionOccured()) return;
         StartOfRound shipManager = StartOfRound.Instance;
 
-        meltdownMusic.volume = MeltdownPlugin.clientConfig.MusicVolume / 100f;
+        meltdownMusic.volume = MeltdownPlugin.config.MusicVolume / 100f;
 
-        if (!Player.isInsideFactory && !MeltdownPlugin.clientConfig.MusicPlaysOutside)
+        if (!Player.isInsideFactory && !MeltdownPlugin.config.MusicPlaysOutside)
         {
             meltdownMusic.volume = 0;
         }
 
         meltdownTimer -= Time.deltaTime;
+        UpdateCountdownScreenShake();
 
         if (meltdownTimer <= 3 && !shipManager.shipIsLeaving)
         {
@@ -289,6 +410,29 @@ public class MeltdownHandler : NetworkBehaviour
                 explosion.AddComponent<FacilityExplosionHandler>();
             }
         }
+    }
+
+    // This is deliberately independent of the intermittent environmental shakes.
+    // It establishes a reliable sense of increasing instability during the latter
+    // half of every meltdown, while the duration snapshot keeps all clients aligned.
+    void UpdateCountdownScreenShake()
+    {
+        if (!MeltdownPlugin.config.ScreenShake || Duration <= 0 || Progress < 0.5f || Time.time < nextCountdownShakeTime)
+            return;
+
+        float intensity = Mathf.InverseLerp(0.5f, 1f, Progress);
+        ScreenShakeType shake = intensity switch
+        {
+            < 0.33f => ScreenShakeType.Small,
+            < 0.7f => ScreenShakeType.Big,
+            _ => ScreenShakeType.VeryStrong
+        };
+
+        HUDManager.Instance.ShakeCamera(shake);
+
+        // Start with occasional tremors at the halfway point, then approach a
+        // rapid, violent rumble as the reactor reaches critical state.
+        nextCountdownShakeTime = Time.time + Mathf.Lerp(4f, 0.45f, intensity);
     }
 
     IEnumerator ShipTakeOff()

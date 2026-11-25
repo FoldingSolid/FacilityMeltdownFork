@@ -5,11 +5,11 @@ using FacilityMeltdown.Behaviours;
 using FacilityMeltdown.Config;
 using FacilityMeltdown.Equipment;
 using FacilityMeltdown.Integrations;
+using FacilityMeltdown.Integrations.SoundAPI;
 using FacilityMeltdown.Lang;
 using FacilityMeltdown.MeltdownSequence.Behaviours;
 using FacilityMeltdown.Util.Attributes;
 using HarmonyLib;
-using LethalLib.Modules;
 using LobbyCompatibility.Attributes;
 using LobbyCompatibility.Enums;
 using System;
@@ -21,20 +21,22 @@ using LobbyCompatibility;
 using UnityEngine;
 using UnityEngine.InputSystem.HID;
 using UnityEngine.SceneManagement;
+using Dawn;
 
 namespace FacilityMeltdown;
 
 [BepInPlugin(modGUID, modName, modVersion)]
 [CompatibleDependency("ainavt.lc.lethalconfig", typeof(LethalConfigIntergration))]
-[CompatibleDependency("com.willis.lc.lethalsettings", typeof(LethalSettingsIntegration))]
 [CompatibleDependency("BMX.LobbyCompatibility", typeof(LobbyCompatibilityIntegration))]
 [CompatibleDependency("mrov.WeatherRegistry", typeof(WeatherRegistryIntegration))]
-[BepInDependency("evaisa.lethallib")]
+[CompatibleDependency("me.loaforc.soundapi", typeof(SoundAPIIntegration))]
+[CompatibleDependency("me.loaforc.diomedes", typeof(DiomedesIntergration))]
+[BepInDependency("com.github.teamxiaolan.dawnlib")]
 public class MeltdownPlugin : BaseUnityPlugin
 {
     internal const string modGUID = "me.loaforc.facilitymeltdown";
     internal const string modName = "FacilityMeltdown";
-    internal const string modVersion = "2.6.15";
+    internal const string modVersion = "2.7.5";
 
     internal static MeltdownPlugin instance;
     internal static ManualLogSource logger;
@@ -42,7 +44,6 @@ public class MeltdownPlugin : BaseUnityPlugin
     public static bool loadedFully { get; private set; } = false;
 
     internal static MeltdownConfig config { get; set; }
-    internal static MeltdownClientConfig clientConfig { get; private set; }
     internal static Harmony harmony = new Harmony(modGUID);
 
     void Awake()
@@ -57,16 +58,21 @@ public class MeltdownPlugin : BaseUnityPlugin
         })) return;
         if (!RunLoadStep("LangParser.Init", "Getting possible languages", LangParser.Init)) return;
         if (!RunLoadStep("new MeltdownConfig()", "Setting up config", () => {
-            config = new MeltdownConfig(Config);
-            clientConfig = new MeltdownClientConfig(new ConfigFile(Utility.CombinePaths(Paths.ConfigPath, "me.loaforc.facilitymeltdown.Client.cfg"), saveOnInit: false, MetadataHelper.GetMetadata(this)));
+            bool migrateLegacyApparatusValue = !Config.ContainsKey(new ConfigDefinition("GameBalance", "ApparatusValueMin"))
+                && !Config.ContainsKey(new ConfigDefinition("GameBalance", "ApparatusValueMax"));
+            bool migrateLegacyClientSettings = !Config.ContainsKey(new ConfigDefinition("Audio", "MusicVolume"));
 
-            logger.LogDebug($"Test Config Value: {config.ApparatusValue}");
+            config = new MeltdownConfig(Config, migrateLegacyApparatusValue);
+            if (migrateLegacyClientSettings)
+            {
+                config.ImportLegacyClientSettings(Utility.CombinePaths(Paths.ConfigPath, "me.loaforc.facilitymeltdown.Client.cfg"));
+            }
+
+            logger.LogDebug($"Apparatus value range: {config.ApparatusValueMin}-{config.ApparatusValueMax}");
             Config.ClearOrphans();
-            clientConfig.configFile.ClearOrphans();
         })) return;
-        if (!RunLoadStep("LangParser.SetLanguage", "Setting language", () => { LangParser.SetLanguage(clientConfig.Language); })) return;
+        if (!RunLoadStep("LangParser.SetLanguage", "Setting language", () => { LangParser.SetLanguage(config.Language); })) return;
         if (!RunLoadStep("RegisterPatches", "Integrating into LethalCompany", RegisterPatches)) return;
-        if (!RunLoadStep("RegisterNetworking", "Making sure everything is networked", RegisterNetworking)) return;
         if (!RunLoadStep("RegisterItems", "Adding the Geiger Counter", RegisterItems))
         {
             logger.LogWarning("Failed to register the geiger counter.");
@@ -111,8 +117,19 @@ public class MeltdownPlugin : BaseUnityPlugin
     void RegisterItems()
     {
         logger.LogInfo("Registering Items");
+        DawnLib.DefineItem(MeltdownKeys.GeigerCounter, assets.geigerCounterItemDef, item =>
+        {
+            item.DefineShop(shop => shop.OverrideCost(90).OverrideInfoNode(assets.geigerCounterNode));
+        });
 
-        Items.RegisterShopItem(MeltdownPlugin.assets.geigerCounterItemDef, null, null, MeltdownPlugin.assets.geigerCounterNode, 90);
+        LethalContent.Items.OnFreeze += () =>
+        {
+            if (!config.OverrideApparatusValue)
+                return;
+
+            LethalContent.Items[ItemKeys.Apparatus].Item.minValue = Mathf.Min(config.ApparatusValueMin, config.ApparatusValueMax);
+            LethalContent.Items[ItemKeys.Apparatus].Item.maxValue = Mathf.Max(config.ApparatusValueMin, config.ApparatusValueMax);
+        };
     }
 
     
@@ -137,30 +154,6 @@ public class MeltdownPlugin : BaseUnityPlugin
         }
     }
 
-    void RegisterNetworking()
-    {
-        var types = new Type[] { typeof(MeltdownHandler), typeof(GeigerCounterItem) };
-        foreach (var type in types)
-        {
-            try
-            {
-                var methods = type.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-                foreach (var method in methods)
-                {
-                    var attributes = method.GetCustomAttributes(typeof(RuntimeInitializeOnLoadMethodAttribute), false);
-                    if (attributes.Length > 0)
-                    {
-                        method.Invoke(null, null);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                logger.LogWarning("supressed an error from netcode patcher, probably fine but should still log that something happened.");
-            }
-        }
-    }
-    
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
     void RegisterPatches() {
         foreach (Type harmonyPatchHandler in Assembly.GetExecutingAssembly().GetLoadableTypes().Where(t => t.IsClass && t.Namespace == "FacilityMeltdown.Patches")) {

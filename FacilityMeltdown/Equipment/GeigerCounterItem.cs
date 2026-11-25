@@ -40,7 +40,7 @@ namespace FacilityMeltdown.Equipment
         {
             MeltdownPlugin.logger.LogInfo($"me when the on value is {on}. :rofl::rofl::rofl:");
 
-            if (isBeingUsed)
+            if (on)
             {
                 lowRadiation.Play();
                 mediumRadiation.Play();
@@ -77,7 +77,7 @@ namespace FacilityMeltdown.Equipment
                     lowRadiation.volume = 1;
                 }
 
-                float needleTurnAmount = Mathf.Clamp01(radiation / maxDetection) * (maxRotation * 2);
+                float needleTurnAmount = Mathf.Clamp01(radiation / Mathf.Max(0.01f, maxDetection)) * (maxRotation * 2);
                 needleTurnAmount -= maxRotation;
 
                 needle.transform.localEulerAngles = new Vector3(-90, needleTurnAmount, 0);

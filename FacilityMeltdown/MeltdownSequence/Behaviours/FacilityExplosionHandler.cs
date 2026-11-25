@@ -21,13 +21,15 @@ namespace FacilityMeltdown.MeltdownSequence.Behaviours
         {
             player = GameNetworkManager.Instance.localPlayerController;
 
-            internalFog = GetComponent<LocalVolumetricFog>();
+            // Some moon-specific explosion prefabs place the fog on a child object.
+            // It is cosmetic, so continue safely if the prefab does not include it.
+            internalFog = GetComponentInChildren<LocalVolumetricFog>(true);
             if (internalFog == null)
             {
-                MeltdownPlugin.logger.LogError("Failed to get volumetric fog!");
+                MeltdownPlugin.logger.LogWarning("Explosion prefab has no volumetric fog; continuing without the expanding fog effect.");
             }
 
-            if (MeltdownPlugin.clientConfig.ScreenShake)
+            if (MeltdownPlugin.config.ScreenShake)
             {
                 HUDManager.Instance.ShakeCamera(ScreenShakeType.Small);
                 HUDManager.Instance.ShakeCamera(ScreenShakeType.Big);
